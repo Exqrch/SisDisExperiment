@@ -1,0 +1,30 @@
+List of Messages:
+1.  READ_REQ-[sender_id]-[version_number]
+      When to send:
+        Beginning of every state (Read/Write)
+      
+      What to do after receiving message:
+        Check the version_number with the receiver.
+        if receiver_version_number > version_number, return resp receiver_version_number
+        if receiver_version_number <= version_number, return ok
+        
+2.  WRITE-REQ-[sender_id]-[version_number]
+      When to send:
+        After sending read request and in the newest state
+      
+      What to do after receiving message:
+        Update the value of other replicas based on the sender's state.
+
+3.  RESP_READ-[sender_id]-[resp]
+      When to send:
+        After receiving read request from a nodes.
+        
+      What to do after receiving message:
+        Check resp if there is any changes needed.
+        
+4.  WRITE_RESP-[sender_id]-[resp]
+      When to send:
+        after receiving write request from a nodes.
+        
+      What to do after receiving message:
+        Check resp if there is any changes needed.
