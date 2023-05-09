@@ -1,5 +1,6 @@
 import socket
 import threading
+import select
 
 
 class Network:
@@ -54,3 +55,30 @@ class Node:
 
 	def start_listening(self):
 		threading.Thread(target=self.listen).start()
+
+class  VSRNode:
+	def __init__(self, node_address, tout):
+		self.address = node_address
+		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.socket.settimeout(tout)
+		self.socket.bind(self.address)
+		self.tout = tout
+
+		# For testing purposes
+		self.last_message = None
+
+	def send_to(self, target_id, message):
+		receiver_address = self.nodes[int(target_id)]
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+			s.settimeout(self.tout)
+			s.connect(receiver_address)
+			s.sendall(message.encode('utf-8'))
+
+			ready = select.select([s], [], [], self.tout)
+			if ready[0]:
+				reply = s.recv(1024)
+				s.close()
+				return reply
+			else:
+				s.close()
+				raise TimeoutError()
