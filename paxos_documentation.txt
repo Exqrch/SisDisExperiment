@@ -1,0 +1,76 @@
+List of Messages:
+1. ELECTION-[sender_id]
+	When to send:
+		Phase 0: Election
+
+	What to do after receiving the message:
+		Add sender_id to candidates of leader.
+		If amount of candidates = amount of node in network, set the smallest node_id as leader.
+		If leader_id == self.node_id, set self.is_leader = True
+
+2. REQUEST_PID-[sender_id]
+	When to send:
+		When a node wants to send its proposal to leader to get a consensus
+
+	What to do after receiving the message:
+		If not leader, nothing.
+
+		If leader, check if the proposal_id_lock is True or not.
+			If True, reply "RUNNING_PROPOSAL-[ongoing_proposal_id]"
+			If False, generate a new proposal id, set proposal_id_lock to True,
+					reply "REPLY_PID-[current_proposal_id]"
+
+3. RUNNING_PROPOSAL-[ongoing_proposal_id]
+	When to send:
+		By leader, see number (2)
+
+	What to do after receiving the message:
+		Halt requesting proposal id.
+
+		After accepting a proposal with the given ongoing_proposal_id, retry request.
+
+4. REPLY_PID-[given_proposal_id]
+	When to send:
+		By leader, see number (2)
+
+	What to do after receiving the message:
+		Send to leader "SET-[variable_name]=[value]-[proposal_id]" or "READ-[variable_name]-[proposal_id]"
+
+5. PREPARE-[proposal_id]
+	When to send:
+		By leader, when a leader receives SET or READ message with appropriate proposal_id
+
+	What to do after receiving the message:
+		if proposal_id == self.current_p_id, reply "PROMISE-[node_id]-[p_id]"
+
+6. PROMISE-[node_id]-[p_id]
+	When to send:
+		By acceptor, when receiving PREPARE-[proposal_id]. Reply with PROMISE-[proposal_id]
+
+	What to do after receiving the message:
+		add node_id to set of promised_node.
+		If promised_node length = num of node in network, start ACCEPT phase "ACCEPT-[proposal_id]-[message]"
+
+7. ACCEPT-[proposal_id]-[message]
+	When to send:
+		By leader, when quorum is reached during promise phase.
+
+	What to do after receiving the message:
+		Parse message, load pickle, change value, dump pickle.
+		Reply with "ACCEPTED-[proposal_id]-[message]"
+
+8. ACCEPTED-[proposal_id]-[message]-[node_id]/-[read_value]
+	When to send:
+		By acceptor, when message has been parsed and saved to disk
+
+	What to do after receiving the message:
+		Wait until quorum (100%) has send ACCEPTED.
+		if quorum reached, broadcasst "NEW_ROUND"
+		[read_value] is only given if the message contains "READ".
+
+9. NEW_ROUND
+	When to send:
+		By leader, after quorum is reached during accepted phase.
+
+	What to do after receiving the message:
+		Unlock all locks from leader and acceptor
