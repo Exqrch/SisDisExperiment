@@ -18,7 +18,6 @@ class Network:
 					s.sendall(message.encode('utf-8'))
 
 	def relay(self, sender_id, target_id, message):
-		print("RELAY CALLED")
 		receiver_address = self.nodes[int(target_id)]
 		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 			s.connect(receiver_address)
@@ -37,7 +36,6 @@ class Node:
 
 	# Should be overwritten by subclass
 	def listen(self):
-		print("LISTENING")
 		self.socket.listen()
 		while True:
 			try:
@@ -52,7 +50,6 @@ class Node:
 		self.network.relay_to_all(self.node_id, message)
 
 	def send_to(self, target_id, message):
-		print("SEND TO CALLED")
 		self.network.relay(self.node_id, target_id, message)
 
 	def start_listening(self):
