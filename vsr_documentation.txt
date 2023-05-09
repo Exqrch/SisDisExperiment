@@ -1,0 +1,23 @@
+List of Actors:
+1. Client
+    The configuration and the current view-number allows it to know which replica is currently the primary.
+    Each msg sent to the client informs it of the current view num.
+    Client can have atmost one outstanding request at any time. Later request should have larger req numbers
+
+2. Replica
+    Replicas participate in processing of client requests only when their status is normal.
+    All participating replicas are in the same view.
+    Initial view number is 0
+    Status can be "NORMAL , "VIEW_CHANGE" or "RECOVERY". Always starts in Normal mode.
+    Sends Commit Message incase there are no REQUEST from client within timwout period
+
+
+In case the primary fails, the client will timeout and the backup replicas will initiate the view change protocol. 
+client will resend the request to all the replicas and wait for the new primary to respond. View change protociol will 
+ensure that the new primary is decided. The new primary then reply back with the updated view number so that the client can
+update that as well.
+
+    1. Create an external process which will be used for error injection. this will automate the error scenarios.
+    2. Selected processes will crash and they will enter into recovery mode after a certain timeout which will be decided by the test node.
+    3. Message Loss can be tested
+    4. Reconfiguration - Not Supported
