@@ -42,7 +42,8 @@ class PaxosTest(TestCase):
 		self.assertEqual(node1.leader_id, 1)
 		self.assertEqual(node2.leader_id, 1)
 		self.assertEqual(node3.leader_id, 1)
-		self.nodes.extend([node1, node2, node3])
+		
+		# self.nodes.extend([node1, node2, node3])
 
 
 unittest.main()
