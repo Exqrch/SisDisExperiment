@@ -1,7 +1,7 @@
 import socket
 import threading
 import select
-
+import asyncio
 
 class Network:
 	def __init__(self, node_ids, node_addresses):
@@ -56,29 +56,27 @@ class Node:
 	def start_listening(self):
 		threading.Thread(target=self.listen).start()
 
-class  VSRNode:
-	def __init__(self, node_address, tout):
-		self.address = node_address
-		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.socket.settimeout(tout)
-		self.socket.bind(self.address)
-		self.tout = tout
+class AsyncNode:
+    def __init__(self, ip, port):
+        self.ip = ip
+        self.port = port
+        self.loop = asyncio.get_event_loop()
 
-		# For testing purposes
-		self.last_message = None
+    async def listen(self):
+        server = await asyncio.start_server(
+            self.handle_client, self.ip, self.port)
+        async with server:
+            await server.serve_forever()
 
-	def send_to(self, target_id, message):
-		receiver_address = self.nodes[int(target_id)]
-		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-			s.settimeout(self.tout)
-			s.connect(receiver_address)
-			s.sendall(message.encode('utf-8'))
+	# Should be overwritten by subclass
+    async def handle_client(self, reader, writer):
+        pass
 
-			ready = select.select([s], [], [], self.tout)
-			if ready[0]:
-				reply = s.recv(1024)
-				s.close()
-				return reply
-			else:
-				s.close()
-				raise TimeoutError()
+    async def send(self, ip, port, message):
+        reader, writer = await asyncio.open_connection(ip, port)
+        writer.write(message.encode())
+        await writer.drain()
+        response = await reader.read(1024)
+        print(f"Received response from {ip}:{port}: {response.decode().strip()}")
+        writer.close()
+        await writer.wait_closed()
