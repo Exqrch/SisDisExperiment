@@ -21,3 +21,13 @@ update that as well.
     2. Selected processes will crash and they will enter into recovery mode after a certain timeout which will be decided by the test node.
     3. Message Loss can be tested
     4. Reconfiguration - Not Supported
+
+VR - State at Replica
+• The configuration: This is a sorted array containing the IP addresses of each of the 2f + 1 replicas.
+• The replica number: This is the index into the configuration where this replica’s IP address is stored.
+• The current view-number, initially 0.
+• The current status, either normal, view-change, or recovering.
+• The op-number assigned to the most recently received request, initially 0.
+• The log. This is an array containing op-number entries. The entries contain the requests that have been received so far in their assigned order.
+• The commit-number is the op-number of the most recently committed operation.
+• The client-table: This records for each client the number of its most recent request, plus, if the request has been executed, the result sent for that request.
