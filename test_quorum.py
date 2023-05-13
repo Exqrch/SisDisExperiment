@@ -4,7 +4,7 @@ import random
 import sys
 import time
 from argparse import ArgumentParser
-import node
+import quorum
 
 # RUN IN PYTHON 3.8.8
 
@@ -68,7 +68,7 @@ def main():
     logger.info("Start running multiple nodes...")
     for node_id in range(number_of_nodes):
         reload_logging_config_node(f"node{node_id+1}.txt")
-        process = NodeProcess(target=node.main, args=(
+        process = NodeProcess(target=quorum.main, args=(
             float(args.heartbeat), int(args.neighbors),
             float(args.fault_duration), starting_port+node_id,
             node_id+1, port_used
