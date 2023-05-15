@@ -340,7 +340,7 @@ class PaxosNode(Node):
 		gap_time = []
 		gap_time.append(self.query_time[0] - self.start_time)
 		for i in range(1, len(self.query_time)):
-			gap_time.append(self.query_time[i] - self.query_time[0])
+			gap_time.append(self.query_time[i] - self.query_time[i-1])
 
 		writef = f"paxos_report/time_{self.node_id}.txt"
 		readf  = f"queries/query_{self.node_id}.txt"
