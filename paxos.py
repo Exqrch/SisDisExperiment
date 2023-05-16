@@ -17,6 +17,11 @@ class PaxosNode(Node):
 	def __init__(self, network, node_id, node_address):
 		super().__init__(network, node_id, node_address)
 
+		# Time-keeping
+		self.start_time = time.monotonic()
+		self.query_time = []
+		self.end_time = None
+
 		# Phase 0: Leader selection through bully protocol
 		self.leader_id = None
 		self.is_leader = False
@@ -266,12 +271,12 @@ class PaxosNode(Node):
 		# 		print(f"the memory of node {self.node_id}\n{memory}\n\n")
 
 		# print(f"QUERY DONE BY {self.node_id} = {self.q_num}")
+		self.query_time.append(time.monotonic())
 		if self.is_leader:
 			# print(f"ROUND {self.proposal_id_lock_value} IS DONE, proposal = {self.current_proposal_order}")
 			self.proposal_id_lock = False
 			self.proposal_id_lock_value = None
 			self.current_proposal_order = None
-
 			self.broadcast(f"NEW_ROUND")
 			self.leader_query_run()
 		else:
@@ -318,15 +323,41 @@ class PaxosNode(Node):
 		if self.is_leader:
 			self.broadcast(f"EXIT")
 
-		memory = {}
-		directory = 'paxos_disk'
-		if os.path.isfile(f"{directory}/disk_{self.node_id}.pickle"):
-			with open(f"{directory}/disk_{self.node_id}.pickle", 'rb') as f:
-				memory = pickle.load(f)
+		# memory = {}
+		# directory = 'paxos_disk'
+		# if os.path.isfile(f"{directory}/disk_{self.node_id}.pickle"):
+		# 	with open(f"{directory}/disk_{self.node_id}.pickle", 'rb') as f:
+		# 		memory = pickle.load(f)
 
-		sorted_memory = dict(sorted(memory.items()))
-		self.memory = sorted_memory
-		print(f"Node {self.node_id} Memories:\n{sorted_memory}\n")
+		# sorted_memory = dict(sorted(memory.items()))
+		# self.memory = sorted_memory
+		# print(f"Node {self.node_id} Memories:\n{sorted_memory}\n")
+
+		self.end_time = time.monotonic()
+
+		# Write timing reports
+		report = ""
+		gap_time = []
+		gap_time.append(self.query_time[0] - self.start_time)
+		for i in range(1, len(self.query_time)):
+			gap_time.append(self.query_time[i] - self.query_time[i-1])
+
+		writef = f"paxos_report/time_{self.node_id}.txt"
+		readf  = f"queries/query_{self.node_id}.txt"
+
+		with open(writef, 'w') as f, open(readf, 'r') as g :
+			report += f"Start time: {self.start_time}\n"
+			report += f"End time  : {self.end_time} \n"
+			report += f"Run time  : {self.end_time - self.start_time} \n"
+			i = 0
+			for line in g.readlines():
+				line = line.strip()
+				if line != '' or line != ' ':
+					report += f"Query {line} took: {gap_time[i]} \n"
+					i += 1
+
+			f.write(report)
+
 
 		sys.exit()
 	# =================================================

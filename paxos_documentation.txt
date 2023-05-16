@@ -74,3 +74,11 @@ List of Messages:
 
 	What to do after receiving the message:
 		Unlock all locks from leader and acceptor
+
+10. EXIT
+	When to send:
+		By leader, after all node has finished their query
+
+	What to do after receiving the message:
+		Log when algorithm terminate with time.monotonic(). 
+		Write run time report to paxos_report/time_{node_id}.txt
