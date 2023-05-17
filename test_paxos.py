@@ -22,9 +22,9 @@ class PaxosTest(TestCase):
 		]
 		network = Network(node_ids, node_addresses)
 
-		node1 = PaxosNode(network, 1, ('127.0.0.1', 5001))
-		node2 = PaxosNode(network, 2, ('127.0.0.1', 5002))
-		node3 = PaxosNode(network, 3, ('127.0.0.1', 5003))
+		node1 = PaxosNode(network, 1, ('127.0.0.1', 5001), 'queries/worst/paxos')
+		node2 = PaxosNode(network, 2, ('127.0.0.1', 5002), 'queries/worst/paxos')
+		node3 = PaxosNode(network, 3, ('127.0.0.1', 5003), 'queries/worst/paxos')
 		node1.start_listening()
 		node2.start_listening()
 		node3.start_listening()
@@ -33,7 +33,7 @@ class PaxosTest(TestCase):
 		node2.leader_protocol_thread.start()
 		node3.leader_protocol_thread.start()
 
-		time.sleep(0.1)
+		time.sleep(2)
 
 		self.assertEqual(node1.is_leader, True)
 		self.assertEqual(node2.is_leader, False)
@@ -43,7 +43,7 @@ class PaxosTest(TestCase):
 		self.assertEqual(node2.leader_id, 1)
 		self.assertEqual(node3.leader_id, 1)
 		
-		# self.nodes.extend([node1, node2, node3])
+		self.nodes.extend([node1, node2, node3])
 
 
 unittest.main()

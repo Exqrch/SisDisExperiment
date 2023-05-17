@@ -14,13 +14,14 @@ from network import Node
 class PaxosNode(Node):
 	# Algorithm is adapted from: "https://www.youtube.com/watch?v=SRsK-ZXTeZ0"
 
-	def __init__(self, network, node_id, node_address):
+	def __init__(self, network, node_id, node_address, query_directory="queries"):
 		super().__init__(network, node_id, node_address)
 
 		# Time-keeping
 		self.start_time = time.monotonic()
 		self.query_time = []
 		self.end_time = None
+		self.query_directory = query_directory
 
 		# Phase 0: Leader selection through bully protocol
 		self.leader_id = None
@@ -82,6 +83,7 @@ class PaxosNode(Node):
 			if (self.leader_id == self.node_id):
 				# print(f"Node {self.node_id} is now leader")
 				self.is_leader = True
+				self.leader_query_run()
 			else:
 				if not self.already_request_proposal_id:
 					# print(f"Node {self.node_id} is now request proposal id")
@@ -129,7 +131,7 @@ class PaxosNode(Node):
 
 	def run_query(self, given_p_id):
 		# print(f"Node {self.node_id} start run_query")
-		with open(f'queries/query_{self.node_id}.txt', 'r') as f:
+		with open(f'{self.query_directory}/query_{self.node_id}.txt', 'r') as f:
 			for i, message in enumerate(f.readlines()):
 				if i == self.q_num:
 					message = message.strip()
@@ -304,15 +306,17 @@ class PaxosNode(Node):
 	# UTILS
 	# =================================================
 	def query_not_done(self):
-		with open(f'queries/query_{self.node_id}.txt', 'r') as f:
-			for i, message in enumerate(f.readlines()):
-				if i == self.q_num:
-					message = message.strip()
-					# print(f"===\nNode {self.node_id}'s next message = {message}\n===")
-					if message == '':
-						return False
-					return True
-			return False
+		if os.path.exists(f'{self.query_directory}/query_{self.node_id}.txt'):
+			with open(f'{self.query_directory}/query_{self.node_id}.txt', 'r') as f:
+				for i, message in enumerate(f.readlines()):
+					if i == self.q_num:
+						message = message.strip()
+						# print(f"===\nNode {self.node_id}'s next message = {message}\n===")
+						if message == '':
+							return False
+						return True
+				return False
+		return False
 
 	def done_protocol(self, sender_id):
 		self.finished_node.add(sender_id)
@@ -337,26 +341,34 @@ class PaxosNode(Node):
 
 		# Write timing reports
 		report = ""
-		gap_time = []
-		gap_time.append(self.query_time[0] - self.start_time)
-		for i in range(1, len(self.query_time)):
-			gap_time.append(self.query_time[i] - self.query_time[i-1])
+		if len(self.query_time) > 0:
+			gap_time = []
+			gap_time.append(self.query_time[0] - self.start_time)
+			for i in range(1, len(self.query_time)):
+				gap_time.append(self.query_time[i] - self.query_time[i-1])
 
 		writef = f"paxos_report/time_{self.node_id}.txt"
-		readf  = f"queries/query_{self.node_id}.txt"
+		readf  = f"{self.query_directory}/query_{self.node_id}.txt"
 
-		with open(writef, 'w') as f, open(readf, 'r') as g :
-			report += f"Start time: {self.start_time}\n"
-			report += f"End time  : {self.end_time} \n"
-			report += f"Run time  : {self.end_time - self.start_time} \n"
-			i = 0
-			for line in g.readlines():
-				line = line.strip()
-				if line != '' or line != ' ':
-					report += f"Query {line} took: {gap_time[i]} \n"
-					i += 1
-
-			f.write(report)
+		if os.path.exists(readf):
+			with open(writef, 'w') as f, open(readf, 'r') as g :
+				report += f"Start time: {self.start_time}\n"
+				report += f"End time  : {self.end_time} \n"
+				report += f"Run time  : {self.end_time - self.start_time} \n"
+				i = 0
+				for line in g.readlines():
+					line = line.strip()
+					if line != '' or line != ' ':
+						if gap_time != []:
+							report += f"Query {line} took: {gap_time[i]} \n"
+							i += 1
+				f.write(report)
+		else:
+			with open(writef, 'w') as f:
+				report += f"Start time: {self.start_time}\n"
+				report += f"End time  : {self.end_time} \n"
+				report += f"Run time  : {self.end_time - self.start_time} \n"
+				f.write(report)
 
 
 		sys.exit()
