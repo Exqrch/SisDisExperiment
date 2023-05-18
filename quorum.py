@@ -1,118 +1,221 @@
 import logging
-import random
-import sys
 import threading
 import time
-import traceback
-from argparse import ArgumentParser
-import socket
-from ast import literal_eval
-from pprint import pformat
-
-def start_fault_timer(key):
-    status_dictionary[key][1] = False
-    logger.info(f"This node become a fault: {key}")
-    logger.info(f"Node fault status_dictionary:\n{pformat(status_dictionary)}")
-
-
-def send_message(node_id, port):
-    logger.debug("Create the client socket...")
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    logger.debug("Encode the message...")
-    message = f"READ_REQ-{node_id}-{status_dictionary}"
-    logger.debug(f"message: {message}")
-    message = message.encode("UTF-8")
-    addr = ("127.0.0.1", port)
-    logger.debug("Send the message...")
-    client_socket.sendto(message, addr)
-
-
-def sending_procedure(heartbeat_duration, node_id, neighbors_port, node_ports):
-    while True:
-        status_dictionary[f"node-{node_id}"][0] += 1
-        logger.info(f"Increase heartbeat node-{node_id}:\n{pformat(status_dictionary)}")
-
-        logger.info("Determining which node to send...")
-        port_1 = random.choice(neighbors_port)
-        port_2 = random.choice(neighbors_port)
-        while port_1 == port_2:
-            port_2 = random.choice(neighbors_port)
-        logger.info(f"Send messages to node-{node_ports[port_1]} and node-{node_ports[port_2]}")
-        send_message(node_id, port_1)
-        send_message(node_id, port_2)
-        time.sleep(heartbeat_duration)
-
-
-def fault_timer_procedure(node_id, fault_duration):
-    for key in status_dictionary.keys():
-        logger.debug(f"key: {key}")
-        if key == node_id:
-            continue
-        thread = threading.Timer(fault_duration, start_fault_timer, (key,))
-        thread.start()
-
-
-def listening_procedure(port, node_id, fault_duration):
-    logger.info("Start the timer for fault duration...")
-    thread_dictionary = {}
-    for key in status_dictionary.keys():
-        logger.debug(f"key: {key}")
-        if key == f"node-{node_id}":
-            continue
-        thread = threading.Timer(fault_duration, start_fault_timer, (key,))
-        thread.start()
-        thread_dictionary[key] = thread
-
-
-    logger.info("Initiating socket...")
-    BUFFER_SIZE = 1024
-    LOCAL_IP = "127.0.0.1"
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sc:
-        sc.bind((LOCAL_IP, port))
-
-        logger.info("Listen for incoming messages...")
-        while True:
-            message_byte, address = sc.recvfrom(BUFFER_SIZE)
-            message_raw = message_byte.decode("UTF-8")
-            logger.debug(f"message_raw: {message_raw}")
-            source = message_raw.split("#")[0]
-            message = message_raw.split("#")[1]
-            logger.info(f"Receive message from {source}...")
-            input_status_dictionary: dict = literal_eval(message)
-            logger.info(f"Incoming message:\n{pformat(input_status_dictionary)}")
-            logger.debug(f"address: {address}")
-
-            logger.debug("Process the message...")
-            for key in input_status_dictionary.keys():
-                input_node_list = input_status_dictionary[key]
-                current_node_list = status_dictionary[key]
-                logger.debug(f"input_node_list {key}: {input_node_list}")
-                logger.debug(f"current_node_list {key}: {current_node_list}")
-                if input_node_list[0] <= current_node_list[0]:
-                    logger.debug("Skip this loop...")
-                    continue
-
-                logger.debug(f"Update logical time {key}: {current_node_list[0]} -> {input_node_list[0]}")
-                logger.debug(f"Check if {key} has died...")
-                current_node_list[0] = input_node_list[0]
-                if input_node_list[1]:
-                    logger.debug(f"{key} has not died...")
-
-                    logger.debug(f"Restart {key} thread...")
-                    thread_dictionary[key].cancel()
-                    current_node_list[1] = True
-                    thread = threading.Timer(fault_duration, start_fault_timer, (key,))
-                    thread_dictionary[key] = thread
-                    thread.start()
-                    continue
-                logger.debug(f"{key} has died...")
-            logger.info(f"status_dictionary after incoming message:\n{pformat(status_dictionary)}")
-
-def handle_exception(exc_type, exc_value, exc_traceback):
-    logger.error(f"Uncaught exception HAHAHA", exc_info=(exc_type, exc_value, exc_traceback))
+from node_socket import UdpSocket
+import json
+import random
 
 def thread_exception_handler(args):
-    logger.error(f"Uncaught exception", exc_info=(args.exc_type, args.exc_value, args.exc_traceback))
+    logging.error(f"Uncaught exception", exc_info=(args.exc_type, args.exc_value, args.exc_traceback))
+
+
+class Quorum:
+
+    def __init__(self, node_id: int, port: int, neighbors_ports: list, lb_fault_duration: int, is_continue: bool,
+                 heartbeat_duration: float):
+        
+        # Initiate Needed Variable
+        logging.info(f"Initialise port and node dictionary...")
+        self.port = port
+        self.neighbors_ports = neighbors_ports
+        self.new_neighbors_ports = neighbors_ports
+        self.node_id = node_id
+        
+        logging.info(f"Initialise persistent variable...")
+        self.heartbeat_duration = heartbeat_duration
+
+        logging.info(f"Initialise volatile state...")
+        self.term = 0
+        self.vote = {}
+        self.election_timer = round(random.uniform(lb_fault_duration, lb_fault_duration+4),1)
+        self.alive_ports = neighbors_ports
+        self.voter = []
+        self.iteration = 2
+
+        logging.info(f"Initialise flag variable...")
+        self.role = 'follower'
+        self.leader_ports = 0
+        self.logs = {}
+
+        logging.info(f"Initialise lock variable...")
+        self.is_continue = is_continue
+        self.lb_fault_duration = lb_fault_duration
+
+        logging.info(f"Initialise election timer thread...")
+        self.timer_thread = threading.Thread(target=self.election_timer_procedure)
+        self.timer_thread.name="start->election_timer"
+
+    def reset_timer(self):
+        # Function to reset timer with new thread every reset
+        self.election_timer = round(random.uniform(self.lb_fault_duration, self.lb_fault_duration+4),1)
+        logging.info("Election timer will start...")
+
+    def election_timer_procedure(self):
+        # Initiate timer for election
+        logging.info("Election timer will start...")
+        logging.info(f"Election timer duration: {self.election_timer}s")
+
+        while True:
+            # Run Election Timer per 0.1s
+            time.sleep(0.1)
+            self.election_timer = round(self.election_timer - 0.1, 1)
+            
+            if self.role == "follower":
+                if self.election_timer == 0.0:
+                    # If not hearing from leader for certain time, be candidate and vote for itself
+                    self.role = 'candidate'
+                    self.term += 1
+                    if self.leader_ports != 0:
+                        self.alive_ports.remove(self.leader_ports)
+                    logging.info("self.is_stop_timer is True, stop election timer...")
+                    reset_thread = threading.Thread(target=self.reset_timer)
+                    self.iteration += 1
+                    reset_thread.name=f"Thread-{self.iteration}"
+                    reset_thread.start()
+                    logging.info("Election timer will start...")
+                    logging.info(f"Election timer duration: {self.election_timer}s")
+                    self.vote[self.term] = self.node_id
+                    self.voter.append(self.node_id)
+                    # Send message to other nodes to request for vote
+                    for neighbor in self.neighbors_ports:
+                        message = {}
+                        message['sender'] = self.node_id
+                        message['term'] = self.term
+                        message['message'] = 'vote_request'
+                        message['ports'] = self.port
+                        message['sender_port'] = self.port
+                        UdpSocket.send(json.dumps(message),neighbor)
+            if self.role == "candidate":
+                if len(self.voter) > len(self.alive_ports)/2:
+                    # If got votes more than half of alive nodes, be leader
+                    self.role = 'leader'
+                    self.leader_ports = self.port
+                    reset_thread = threading.Thread(target=self.reset_timer)
+                    self.iteration += 1
+                    reset_thread.name=f"Thread-{self.iteration}"
+                    reset_thread.start()
+                    logging.info("Election timer will start...")
+                    logging.info(f"Election timer duration: {self.election_timer}s")
+                self.vote = {}
+            if self.role == 'leader':
+                # Reset election_timer as long as being a leader
+                self.election_timer = 0
+    
+    def sending_procedure(self):
+
+        leader_timer = 0.0
+        while True:
+            if self.role == 'leader':
+                time.sleep(0.1)
+                leader_timer = round(leader_timer + 0.1, 1)
+                if round(leader_timer % self.heartbeat_duration,1) == 0.0:
+                    # Send to all nodes every heartbeat duration
+                    default_port = self.port - self.node_id
+                    for i in range (1,5):
+                        message_dict = {}
+                        message_dict['sender'] = self.node_id
+                        message_dict['term'] = self.term
+                        message_dict['message'] = 'log_request'
+                        message_dict['ports'] = self.port
+                        message_dict['sender_port'] = self.port
+                        UdpSocket.send(json.dumps(message_dict), default_port+i)
+            else:
+                leader_timer = 0.0
+    
+    def receive_log(self, dict_json):
+        # Function to process log replication
+        logging.info("self.is_stop_timer is True, stop election timer...")
+        reset_thread = threading.Thread(target=self.reset_timer)
+        self.iteration += 1
+        reset_thread.name=f"Thread-{self.iteration}"
+        reset_thread.start()
+        logging.info(f"Election timer duration: {self.election_timer}s")
+        self.leader_ports = dict_json['ports']
+        self.term = dict_json['term']
+        if dict_json['ports'] not in self.alive_ports:
+            self.alive_ports.append(dict_json['ports'])
+
+        # Send return message to the Leader
+        message_dict={}
+        message_dict['sender'] = self.node_id
+        message_dict['term'] = self.term
+        message_dict['ports'] = self.port
+        message_dict['message'] = 'log replicated'
+        UdpSocket.send(json.dumps(message_dict), dict_json['sender_port'])
+
+                    
+    def listening_procedure(self):
+        node_socket = UdpSocket(self.port)
+        while True:
+            message, address = node_socket.listen()
+            dict_json = json.loads(message)
+
+            if self.role == 'follower':
+                # Logic if follower get vote request message
+                if dict_json['message'] == 'vote_request':
+                    logging.info(f"node{dict_json['sender']} sends a vote_request")
+                    logging.info(f"vote procedure is starting...")
+                    if dict_json['term'] > self.term:
+                        logging.info(f"Candidate {dict_json['sender']} has higher term than my term")
+                        logging.info(f"Change term from {self.term} to {dict_json['term']}")
+                        self.term = dict_json['term']
+
+                        message_dict = {}
+                        message_dict['sender'] = self.node_id
+                        message_dict['term'] = self.term
+                        message_dict['ports'] = self.port
+                        message_dict['message'] = 'agree vote'
+                        
+                        reset_thread = threading.Thread(target=self.reset_timer)
+                        self.iteration += 1
+                        reset_thread.name=f"Thread-{self.iteration}"
+                        reset_thread.start()
+
+                        self.vote[dict_json['term']] = dict_json['sender']
+                        UdpSocket.send(json.dumps(message_dict), dict_json['sender_port'])
+                    logging.info(f"Connection for vote_procedure from candidate {dict_json['sender']} has been closed...")
+                # Logic if follower get log request message
+                elif dict_json['message'] == 'log_request':
+                    logging.info(f"node{dict_json['sender']} sends a log_request")
+                    logging.info(f"Receive log is starting...")
+                    receive_log_thread = threading.Thread(target=self.receive_log, args=(dict_json,))
+                    receive_log_thread.name="receive_log->election_timer"
+                    receive_log_thread.start()
+                    
+                    
+            elif self.role == 'candidate':
+                # Logic if candidate got agree vote from other follower
+                if dict_json['message'] == 'agree vote':
+                    self.voter.append(dict_json['sender'])
+                # Logic if candidate got message from a leader
+                elif dict_json['message'] == 'log_request':
+                    if dict_json['term'] >= self.term:
+                        self.term = dict_json['term']
+                        self.leader_ports = dict_json['ports']
+                        if dict_json['ports'] not in self.alive_ports:
+                            self.alive_ports.append(dict_json['ports'])
+                        self.role = 'follower'
+                        reset_thread = threading.Thread(target=self.reset_timer)
+                        self.iteration += 1
+                        reset_thread.name=f"Thread-{self.iteration}"
+                        reset_thread.start()
+
+
+    def start(self):
+        # TODO
+        logging.info("Execute self.candidate_timer_thread.start()...")
+        self.timer_thread.start()
+
+        logging.info("Listen for any inputs...")
+        listen_thread = threading.Thread(target=self.listening_procedure)
+        listen_thread.name="listen_procedure_thread"
+        listen_thread.start()
+
+        send_thread = threading.Thread(target=self.sending_procedure())
+        send_thread.start()
+
+        pass
+
 
 def reload_logging_windows(filename):
     log = logging.getLogger()
@@ -124,46 +227,24 @@ def reload_logging_windows(filename):
                         filemode='w',
                         level=logging.INFO)
 
-def main(heartbeat_duration=1, num_of_neighbors_to_choose=1,
-         fault_duration=1, port=1000, node_id=1, neighbors_ports=(1000,)):
+def main(heartbeat_duration=1, lb_fault_duration=1, port=1000,
+         node_id=1, neighbors_ports=(1000,), is_continue=False):
     reload_logging_windows(f"logs/node{node_id}.txt")
-    global logger
-    logger = logging.getLogger(__name__)
+    threading.excepthook = thread_exception_handler
     try:
-        logger.info(f"Node with id {node_id} is running...")
-        logger.debug(f"heartbeat_duration: {heartbeat_duration}")
-        logger.debug(f"fault_duration: {fault_duration}")
-        logger.debug(f"port: {port}")
-        logger.debug(f"num_of_neighbors_to_choose: {num_of_neighbors_to_choose}")
-        logger.debug(f"neighbors_ports: {neighbors_ports}")
+        logging.info(f"Node with id {node_id} is running...")
+        logging.debug(f"heartbeat_duration: {heartbeat_duration}")
+        logging.debug(f"lower_bound_fault_duration: {lb_fault_duration}")
+        logging.debug(f"upper_bound_fault_duration = {lb_fault_duration}s + 4s")
+        logging.debug(f"port: {port}")
+        logging.debug(f"neighbors_ports: {neighbors_ports}")
+        logging.debug(f"is_continue: {is_continue}")
 
-        logger.info("Configure the status_dictionary global variable...")
-        global status_dictionary
-        status_dictionary = {}
-        node_ports = {}
-        for i in range(len(neighbors_ports)):
-            status_dictionary[f"node-{i + 1}"] = [0, True]
-            node_ports[neighbors_ports[i]] = i+1
-        neighbors_ports.remove(port)
-        logger.info(f"status_dictionary:\n{pformat(status_dictionary)}")
-        logger.info("Done configuring the status_dictionary...")
+        logging.info("Create raft object...")
+        raft = Raft(node_id, port, neighbors_ports, lb_fault_duration, is_continue, heartbeat_duration)
 
-        logger.info("Executing the listening procedure...")
-        threading.excepthook = thread_exception_handler
-        thread = threading.Thread(target=listening_procedure, args=(port, node_id, fault_duration))
-        thread.name = "listening_thread"
-        thread.start()
-        logger.info("Executing the sending procedure...")
-        thread = threading.Thread(target=sending_procedure,
-                         args=(heartbeat_duration,
-                               node_id, neighbors_ports, node_ports))
-        thread.name = "sending_thread"
-        thread.start()
-    except Exception as e:
-        logger.exception("Caught Error")
+        logging.info("Execute raft.start()...")
+        raft.start()
+    except Exception:
+        logging.exception("Caught Error")
         raise
-
-
-
-if __name__ == '__main__':
-    main()
