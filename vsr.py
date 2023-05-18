@@ -1,44 +1,44 @@
-from multiprocessing import process
-from network import AsyncNode
-import sys
-import os
+from network import Node
 import time
 import random
-import pickle
-import asyncio
+import json
+import socket
 
 MAX_NOPS = 10
 
 
-def operation(i): return lambda state: (state+[i], ['result', i, 'on', state])
+def operation(i):
+    return lambda state: (state + [i], ["result", i, "on", state])
 
 
 operations = {i: operation(i) for i in range(MAX_NOPS)}
 
 
-class Replica(AsyncNode):
-    def __init__(self, replicas: list, quorumsize: int, tout: float, clients: dict, ip, port):
-        super().__init__(ip, port)
+class Replica(Node):
+    def __init__(
+        self,
+        network,
+        node_id,
+        node_address,
+        quorumsize: int,
+        tout: float,
+        clients: dict,
+    ):
+        super().__init__(network, node_id, node_address)
         # State variables for the replica
-        # We don't need The replica number. This is the index into the configuration where this replica’s IP address is stored.
 
-        # The current status, either NORMAL, VIEW_CHANGE, or RECOVERY.
         self.status = "NORMAL"
-        self.v = 0						# The current view-number, initially 0.
-        self.s = 0
-        # The op-number assigned to the most recently received request, initially 0.
-        self.n = 0
+        self.node_id = node_id
+        self.view_num = 0
+        self.req_num = 0
+        # The most recently received op-num from request
+        self.op_num = 0
         # The commit-number is the op-number of the most recently committed operation.
-        self.k = 0
+        self.commit_num = 0
         # The log. This is an array containing op-number entries. The entries contain the requests that have been received so far in their assigned order.
         self.logs = list()
         # The client-table. This records for each client the number of its most recent request, plus, if the request has been executed, the result sent for that request.
         self.client_table = dict()
-        # The configuration. This is a sorted array containing the IP addresses of each of the 2f + 1 replicas.
-        self.config = replicas.copy()
-        self.config.sort()
-        self.replicas = self.config.copy()
-        self.replicas.remove(port)
         self.clients = clients
         self.quorumsize = quorumsize
         self.tout = tout
@@ -52,7 +52,7 @@ class Replica(AsyncNode):
         self.last_commit_num = 0
         self.num_prepare_ok = 0
         self.num_do_view_change = 0
-        self.last_received_prepare_op_num = 0
+        self.last_prepare_message = None
 
         # View Change implementation variable
         self.start_view_change_req = set()
@@ -63,35 +63,39 @@ class Replica(AsyncNode):
 
         print("Replica:: Setup completed")
 
-    async def run(self):
+    def send_to_client(self, message, c_id=5000):
+        receiver_address = self.clients[c_id]
+        print("RECEIVER ADDRESS================", receiver_address, message)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect(receiver_address)
+            s.sendall(message.encode("utf-8"))
+
+    def run(self):
         while not self.done:
             if self.status == "NORMAL":
-                if (self == self.config[self.v]):
-                    try:
-                        # Blocking thread until reply is received or timeout
-                        await asyncio.wait_for(self.start_primary_timer(), self.tout)
-                        self.success = True
-                    except asyncio.TimeoutError:
-                        print("Replica:: Primary timeout occured, sending COMMIT")
-                        # TODO
-                        pass
+                if self.is_primary_replica():
+                    self.start_primary_timer()
+
+                    # Timeout
+                    print("Replica:: Primary timeout occured, sending COMMIT")
+                    message = ("COMMIT", (self.view_num, self.commit_num))
+                    self.broadcast(json.dumps(message))
+
                 else:
-                    try:
-                        # Blocking thread until reply is received or timeout
-                        await asyncio.wait_for(self.start_backup_timer(), self.tout + 2)
-                        self.success = True
-                    except asyncio.TimeoutError:
-                        print(
-                            "Replica:: Backup timeout occured, requesting VIEW_CHANGE")
-                        self.last_normal_view = self.v
-                        self.start_view_change_req.clear()
-                        self.v = (self.v + 1) % len(self.replicas)
-                        self.status = 'VIEW_CHANGE'
-                        for replica in self.replicas:
-                            # Then it sends a (PREPARE v, m, n, k) message to the other replicas, n is the op-num it assigned to the request, k is the commit num
-                            self.new_loop().run_until_complete(
-                                self.send(replica, pickle.dumps(('START_VIEW_CHANGE', (self.v, self.s)))))
-                        pass
+                    self.start_backup_timer()
+
+                    # Timeout
+                    print("Replica:: Backup timeout occured, requesting VIEW_CHANGE")
+                    self.last_normal_view = self.view_num
+                    self.start_view_change_req.clear()
+                    self.view_num = (self.view_num + 1) % len(self.network.nodes)
+                    self.status = "VIEW_CHANGE"
+
+                    message = (
+                        "START_VIEW_CHANGE",
+                        (self.view_num, self.req_num),
+                    )
+                    self.broadcast(json.dumps(message))
             else:
                 pass
 
@@ -102,46 +106,48 @@ class Replica(AsyncNode):
         Section 4, page 4, Point 7
         When a backup learns of a commit, it waits un- til it has the request in its log (which may require state transfer)
         and until it has executed all earlier operations. Then it executes the operation by per- forming the up-call to the
-        service code, increments its commit-number, updates the client’s entry in the client-table, but does not send the
+        service code, increments its commit-number, updates the client's entry in the client-table, but does not send the
         reply to the client.
         """
         has_last_commited = False
-        for (op, m) in self.logs:
+        for op, m in self.logs:
             if op == self.last_commit_num:
                 has_last_commited = True
 
-        if (self.k < self.last_commit_num and has_last_commited):
-            my_commit = self.k + 1
+        if self.commit_num < self.last_commit_num and has_last_commited:
+            my_commit = self.commit_num + 1
             print("Replica:: Backup: Some pending operations will be commited now...")
             for op in range(my_commit, has_last_commited):
-                message = self.update_and_get_logs(op)
-                (oper, client, req) = message[0]
-                self.k += 1
+                message = self.get_matching_logs(op)
+                (payload, client, req) = message
+                self.commit_num += 1
                 self.client_table[client][1] = True
-                self.client_table[client][2] = "answer = " + str(req)
+                self.client_table[client][2] = payload
                 print(
-                    f"Replica:: Backup: Completing old operations.. Commit number {self.k} and operation {oper}")
+                    f"Replica:: Backup: Completing old operations.. Commit number {self.commit_num} and payload {payload}"
+                )
 
-            self.k += 1
+            self.commit_num += 1
             self.client_table[m[1]][1] = True
-            self.client_table[m[1]][2] = "answer = " + str(m[2])
+            self.client_table[m[1]][2] = m[2]
             print(
-                f"Replica:: Backup: Latest commit number {self.k} and operation {m[0]}")
+                f"Replica:: Backup: Latest commit number {self.commit_num} and operation {m[0]}"
+            )
 
-    def update_and_get_logs(self, curr_op):
-        message = []
-        for (oper, m) in self.logs:
-            message.append([m, (oper, m), oper == curr_op])
-        return message
+    def get_matching_logs(self, curr_op):
+        for oper, m in self.logs:
+            if oper == curr_op:
+                return m
 
-    async def start_primary_timer(self):
-        print("Replica:: Primay: Starting primary timer")
-        condition = asyncio.Condition()
-        async with condition:
-            await condition.wait_for(lambda: self.num_req_latest > self.num_prepare_obsolete)
-            self.num_req_obsolete = self.num_req_latest
+    def start_primary_timer(self):
+        timer_end = time.monotonic_ns() + self.tout * 10**9
+        print("Replica:: Primary timer starts", time.monotonic_ns(), timer_end)
+        while time.monotonic_ns() < timer_end:
+            if self.num_req_latest > self.num_prepare_obsolete:
+                self.num_req_obsolete = self.num_req_latest
+                timer_end += self.tout * 10**9
 
-    async def start_backup_timer(self):
+    def start_backup_timer(self):
         """
         Section 4, normal operation, point 4, page 7
         Backups process PREPARE messages in order: a backup won't accept a prepare with op-number n until
@@ -149,45 +155,66 @@ class Replica(AsyncNode):
         waits until it has entries in its log for all earlier requests (doing state transfer if necessary
         to get the missing information).
         """
-        flag = True
-        print("Replica:: Backup: Waiting for prepare having next op num:", self.n+1)
-        while flag:
-            if self.last_received_prepare_op_num == self.n + 1:  					# Await untill it has all previous entries
-                (view_num, m, op_num, commit_num) = self.last_received_message
+        print(
+            "Replica:: Backup: Waiting for prepare having next op num:",
+            self.op_num + 1,
+        )
+        timer_end = time.monotonic_ns() + self.tout * 10**9
+        print("Replica:: Backup timer starts", time.monotonic_ns(), timer_end)
+        while time.monotonic_ns() < timer_end:
+            if (
+                self.num_prepare_latest == self.op_num + 1
+            ):  # Await untill it has all previous entries
+                print(self.last_message)
+                (view_num, m, op_num, commit_num) = self.last_prepare_message
                 self.commit_prev_operation()
-                self.n += 1															# Then increments it's op_num
-                self.logs.append((self.n, m))										# Append the logs
+                self.op_num += 1  # Then increments it's op_num
+                self.logs.append((self.op_num, m))  # Append the logs
                 # Update the client_table
                 self.client_table[m[1]] = [m[2], False, None]
-                print("Replica:: Backup: Sending PREPARE_OK to primary...")
-                self.new_loop().run_until_complete(self.send(
-                    self.config[self.v], pickle.dumps(('PREPARE_OK', (self.v, self.n, self.port)))))
-                flag = False
 
-            elif self.num_prepare_latest > self.num_prepare_obsolete or self.heartbeat == 1:
+                print("Replica:: Backup: Sending PREPARE_OK to primary...")
+                message = ("PREPARE_OK", (self.view_num, self.op_num, self.node_id))
+                self.send_to(self.curr_primary_id(), json.dumps(message))
+                timer_end += self.tout * 10**9
+
+            elif (
+                self.num_prepare_latest > self.num_prepare_obsolete
+                or self.heartbeat == 1
+            ):
                 self.num_prepare_obsolete = self.num_prepare_latest
                 print(
-                    "Replica:: Backup: Prepare message / heartbeat from the primary received...")
+                    "Replica:: Backup: Prepare message / heartbeat from the primary received..."
+                )
                 self.commit_prev_operation()
                 self.heartbeat = 0
+                timer_end += self.tout * 10**9
 
-    async def handle_client(self, reader, writer):
+    def listen(self):
+        self.socket.listen()
         while True:
-            data = await reader.read(1024)
-            if not data:
+            try:
+                conn, _ = self.socket.accept()
+                data = conn.recv(1024)
+                message = data.decode("utf-8")
+                self.last_message = json.loads(message)
+            except OSError:
                 break
-            writer.write(data)
-            await writer.drain()
 
-            (order, m) = pickle.loads(data)
-            print(f"Replica:{self.port}: Received message:", order, m)
+            (order, m) = self.last_message
+            print(f"Replica:{self.node_id}: Received message:", order, m)
+
             if order == "REQUEST":
                 self.handle_request_message(m)
+
+            if order == "READ":
+                payload = self.handle_read_message(m)
+                conn.send(json.dumps(payload).encode("utf-8"))
 
             if order == "PREPARE":
                 self.handle_prepare_message(m)
 
-            if order == 'PREPARE_OK':
+            if order == "PREPARE_OK":
                 self.handle_prepare_ok_message(m)
 
             if order == "COMMIT":
@@ -201,11 +228,20 @@ class Replica(AsyncNode):
 
             if order == "START_VIEW_CHANGE":
                 self.handle_start_view_change_message(m)
+            conn.close()
 
-        writer.close()
+    def handle_read_message(self, message):
+        if self.is_primary_replica():
+            print("Replica:: Primary: READ message handler")
+            (k) = message
+
+            for i in range(len(self.logs) - 1, -1, -1):
+                value = self.logs[i]
+                if value[0] == k:
+                    return (self.view_num, value)
 
     def handle_commit_message(self, message):
-        if self.port != self.config[self.v] and self.status == "NORMAL":
+        if self.is_backup_replica():
             (v, k) = message
             print("Replica:: Backup: Received Hearbear/COMMIT from the primary...")
             self.heartbeat = 1
@@ -213,7 +249,7 @@ class Replica(AsyncNode):
                 self.last_commit_num = k
 
     def handle_start_view_message(self, message):
-        '''
+        """
         Section 4, view change mode, point 5 page 6
         When other replicas receive the STARTVIEW message, they replace their log
         with the one in the message, set their op-number to that of the latest entry
@@ -222,38 +258,43 @@ class Replica(AsyncNode):
         Then they execute all op- erations known to be committed that they haven't
         executed previously, advance their commit-number, and update the information
         in their client-table.
-        '''
+        """
         (view_num, new_logs, op_num, commit_num, rep) = message
-
-        if self.config[view_num] != rep:
-            print("Replica:: ERROR: Primary mismatch")
 
         if self.status == "VIEW_CHANGE":
             self.status = "NORMAL"
-            self.v = view_num
-            self.n = op_num
+            self.view_num = view_num
+            self.op_num = op_num
             self.logs = new_logs
             print("Replica:: Move to new view", view_num)
 
-            if commit_num < self.n:
-                print("Replica:: Sending PREPARE_OK to primary", self.v, self.n)
-                self.new_loop().run_until_complete(self.send(
-                    self.config[self.v], pickle.dumps(('PREPARE_OK', (self.v, self.n, self.port)))))
-                start = self.k + 1
-                for operation in range(start, commit_num+1):
-                    client_info = self.update_and_get_logs(operation)
-                    (oper, client, req) = client_info[0]
+            if commit_num < self.op_num:
+                print(
+                    "Replica:: Sending PREPARE_OK to primary",
+                    self.view_num,
+                    self.op_num,
+                )
+                message = ("PREPARE_OK", (self.view_num, self.op_num, self.node_id))
+                self.send_to(self.curr_primary_id(), json.dumps(message))
+
+                start = self.commit_num + 1
+                for operation in range(start, commit_num + 1):
+                    client_info = self.get_matching_logs(operation)
+                    (payload, client, req) = client_info
 
                     # Perform client operation at this place.
                     # updates the client’s entry in the client-table,
                     self.client_table[client][1] = True
-                    self.client_table[client][2] = "answer = " + str(req)
-                    self.k += 1
+                    self.client_table[client][2] = payload
+                    self.commit_num += 1
                     print(
-                        "#### START_VIEW: Completing old operations..current commit number and op", k, cur_msg[0])
+                        "#### START_VIEW: Completing old operations..current commit number and op",
+                        self.commit_num,
+                        self.op_num,
+                    )
 
     def handle_do_view_change_message(self, message):
-        '''
+        """
         (From vr-revis, page 5, 4.2 View Changes, point 3)
         When the new primary receives f + 1 DOVIEWCHANGE messages from different replicas
         including itself, it sets its view-number to that in the messages and selects
@@ -269,8 +310,8 @@ class Replica(AsyncNode):
         The new primary starts accepting client requests. It also executes (in order) any
         committed operations that it hadn't executed previously, updates its client table,
         and sends the replies to the clients.
-        '''
-        if self.status == 'VIEW_CHANGE':
+        """
+        if self.status == "VIEW_CHANGE":
             print("Replica:: DO_VIEW_CHANGE handler")
 
         pass
@@ -279,32 +320,44 @@ class Replica(AsyncNode):
         pass
 
     def handle_request_message(self, message):
-        print(self.port, self.config, self.status)
-        if self.port == self.config[self.v] and self.status == "NORMAL":
-            print("Replica:: REQUEST handler", message)
+        if self.is_primary_replica():
+            print("Replica:: Primary: REQUEST handler", message)
             self.num_req_latest += 1
-            (op, c, s) = message
+            (op, c_id, s) = message
             # It compares the request-number in the request with the information in the client table.
-            vs_max = self.get_vs_max(c)
+            vs_max = self.get_vs_max(c_id)
 
             if s > vs_max:
-                self.n += 1 																	# The primary advances op-number
+                self.op_num += 1  # The primary advances op-number
                 # Appends the request to the end of the log
-                self.logs.append((self.n, message))
+                self.logs.append((self.op_num, message))
                 # Updates the information for this client in the client-table to contain the new request number 's'
-                self.client_table[c] = (s, False, None)
+                self.client_table[c_id] = (s, False, None)
 
-                print("Replica:: Sending request to other replicas", self.s)
+                print("Replica:: Sending request to other replicas", self.req_num)
                 self.num_prepare_ok = 0
-                for address in self.replicas:
-                    # Then it sends a (PREPARE v, m, n, k) message to the other replicas, n is the op-num it assigned to the request, k is the commit num
-                    self.new_loop().run_until_complete(
-                        self.send(address, pickle.dumps(('PREPARE', (self.v, message, self.n, self.k)))))
+                message = (
+                    "PREPARE",
+                    (
+                        self.view_num,
+                        message,
+                        self.op_num,
+                        self.commit_num,
+                    ),
+                )
+                self.broadcast(json.dumps(message))
 
             # It will re-send the response, if the request is the most recent one from this client and it has already been executed.
-            elif s == vs_max and self.client_table[c][1]:
-                self.new_loop().run_until_complete(self.send(self.clients[c], pickle.dumps(
-                    ('REPLY', (self.v, message[2], self.client_table[message[1]][1])))))
+            elif s == vs_max and self.client_table[c_id][1]:
+                message = (
+                    "REPLY",
+                    (
+                        self.view_num,
+                        message[2],
+                        self.client_table[message[1]][1],
+                    ),
+                )
+                self.send_to_client(c_id, json.dumps(message))
 
             # If the request-number s isn’t bigger than the information in the table it drops the request
             else:
@@ -319,131 +372,203 @@ class Replica(AsyncNode):
         to get the missing information).
         Handling this inside the run method as its a bad idea to wait inside the event handler.
         """
-        if self.port != self.config[self.v] and self.status == "NORMAL":
+        if self.is_backup_replica():
             self.num_prepare_latest += 1
             (view_num, m, op_num, commit_num) = message
-            self.last_received_prepare_op_num = op_num
-            self.last_received_message = message
+            self.last_prepare_message = message
 
             print(
-                f"Replica:: PREPARE handler view_num={view_num} m={m} op_num={op_num} commit_num={commit_num}")
+                f"Replica:: Backup: PREPARE handler view_num={view_num} m={m} op_num={op_num} commit_num={commit_num}"
+            )
+            print(
+                f"Replica:: Backup: PREPARE handler CONDITION={self.num_prepare_latest == self.op_num + 1} last_message={self.last_message}"
+            )
             if commit_num > self.last_commit_num:
                 self.last_commit_num = commit_num
 
+            # if (
+            #     self.num_prepare_latest > self.num_prepare_obsolete
+            #     or self.heartbeat == 1
+            # ):
+            #     self.num_prepare_obsolete = self.num_prepare_latest
+            #     print(
+            #         "Replica:: Backup: Prepare message / heartbeat from the primary received..."
+            #     )
+            #     self.commit_prev_operation()
+            #     self.heartbeat = 0
+
     def handle_prepare_ok_message(self, message):
-        if self.port == self.config[self.v] and self.status == 'NORMAL':
+        if self.is_primary_replica():
             (view_num, op_num, i) = message
             self.num_prepare_ok += 1
 
-            print(f"Replica:: PREPARE_OK handler num_prepare_ok",
-                  self.num_prepare_ok)
+            print(f"Replica:: PREPARE_OK handler num_prepare_ok", self.num_prepare_ok)
             if self.num_prepare_ok >= self.quorumsize:
-                start = self.k + 1
+                start = self.commit_num + 1
                 for operation in range(start, op_num + 1):
                     print(
-                        "Replica:: Primay has some uncommited operations. Committing now...")
-                    client_info = self.update_and_get_logs(operation)
-                    (oper, client, req) = client_info[0]
-                    if (req > self.client_table[client][0] or self.client_table[client][1] == False):
+                        "Replica:: Primay has some uncommited operations. Committing now..."
+                    )
+                    client_info = self.get_matching_logs(operation)
+                    print("==========LOGS==============", self.logs)
+                    print("==========CLIENT INFO=======", client_info)
+                    print("==========CLIENT TABLE======", self.client_table)
+                    (payload, client, req) = client_info
+                    if (
+                        req > self.client_table[client][0]
+                        or self.client_table[client][1] == False
+                    ):
                         # Do client operation here
-                        self.client_table[client] = (
-                            req, True, "answer = " + str(client) + " " + str(oper))
-                        self.k += 1
+                        self.client_table[client] = (req, True, payload)
+                        self.commit_num += 1
                         print(
-                            f"Replica:: Primary: Commit number {self.k} and operation {oper}")
-                        self.new_loop().run_until_complete(self.send(client, pickle.dumps(
-                            ('REPLY', (self.v, req, self.client_table[client][2])))))
+                            f"Replica:: Primary: Commit number {self.commit_num} and payload {payload}"
+                        )
+                        message = (
+                            "REPLY",
+                            (
+                                self.view_num,
+                                req,
+                                self.client_table[client][2],
+                            ),
+                        )
+                        print("REPLY message", message)
+                        self.send_to_client(client, json.dumps(message))
 
-    def get_vs_max(self, c):
-        if c not in self.client_table.keys():
+    def get_vs_max(self, c_id):
+        if c_id not in self.client_table.keys():
             vs_max = -1
         else:
             # max(setof(req, received(('REQUEST',_,_c, req))))
-            vs_max = self.client_table[c][0]
+            vs_max = self.client_table[c_id][0]
         return vs_max
 
+    def curr_primary_id(self):
+        return self.view_num % len(self.network.nodes)
 
-class Client(AsyncNode):
+    def is_backup_replica(self):
+        return (
+            self.node_id != self.view_num % len(self.network.nodes)
+            and self.status == "NORMAL"
+        )
+
+    def is_primary_replica(self):
+        return (
+            self.node_id == self.view_num % len(self.network.nodes)
+            and self.status == "NORMAL"
+        )
+
+
+class Client:
     def __init__(self, replicas: list, tout, ip, port):
-        super().__init__(ip, port)
+        # Socket
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.bind((ip, port))
 
         # Time keeping
-        self.start_time = time.monotonic()
+        self.start_time = time.monotonic_ns()
         self.query_time = []
         self.end_time = None
 
-        self.state = None												# Current State of the client
-        self.config = replicas
-        self.config.sort()												# Configuration setting of the current replica group
-        self.v = 0														# View Number for the current request
-        self.c = self.port													# Client Id
-        self.s = 0														# Request Number
-        self.primary = self.config[self.v]
+        self.state = None
+        # Configuration setting of the current replica group
+        self.config = replicas.copy()
+        self.view_num = 0
+        self.c_id = port
+        self.req_num = 1
+        self.primary = self.config[self.view_num]
         self.results = dict()
         self.tout = tout
         self.success = False
         print("Client::", self, "setup completed")
-
-        # DS for measuring Performance
-        self.perf_data = []
-        self.cur_req = 0
 
     # ========================================================================
     # Client sends request one by one
     # Client Will always try to resend the request to primary if failed
     # Update request number only after the previous request has been completed
     # ========================================================================
-    async def run(self):
+    def run(self):
         print("Client:: Running...")
+        timer = time.monotonic_ns()
         self.success = False
 
-        # self.perf_data.append(time.perf_counter())
-        payload = f"test#{random.randint(1, 100)}"
+        payload = "c=" + str(random.randint(1, 100))
+        SET = False
 
         # Sending request to primary
-        while not self.success:
-            loop = self.new_loop()
-            loop.run_until_complete(self.send(self.primary, pickle.dumps(
-                ('REQUEST', (payload, self.c, self.s)))))
+        if SET:
+            while not self.success:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    message = json.dumps(
+                        ("REQUEST", (payload, self.c_id, self.req_num))
+                    )
+                    s.connect(self.primary)
+                    s.sendall(message.encode("utf-8"))
 
-            try:
-                # Blocking thread until reply is received or timeout
-                await asyncio.wait_for(self.wait_for_reply(), self.tout)
-                self.success = True
-            except asyncio.TimeoutError:
-                print("Client:: Timeout occured on REPLY for op", payload)
+                self.start_timer()
+        else:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                message = json.dumps(("READ", ("c")))
+                s.connect(self.primary)
+                s.sendall(message.encode("utf-8"))
+                data = s.recv(1024)
+                message = data.decode("utf-8")
+                print("RECEIVED RESPONSE", message)
 
         print("Client:: Finished sending message to replica")
+        print("QUERY TIME TAKEN", time.monotonic_ns() - timer)
 
-    async def wait_for_reply(self):
-        condition = asyncio.Condition()
-        async with condition:
-            await condition.wait_for(lambda: self.s in self.results)
-            self.s += 1
-
-    async def handle_client(self, reader, writer):
-        while True:
-            data = await reader.read(1024)
-            if not data:
+    def start_timer(self):
+        timer_end = time.monotonic_ns() + self.tout * 10**9
+        print("Client:: Timer starts", time.monotonic_ns(), timer_end)
+        while time.monotonic_ns() < timer_end:
+            if self.req_num in self.results:
+                self.req_num += 1
+                self.success = True
                 break
-            message = data.decode()
-            print("Client:: Received message:", message)
-            writer.write(data)
-            await writer.drain()
+        if self.success:
+            print("Client:: Timeout....")
 
-            (order, m) = pickle.loads(message)
-            (view_number, c_id, result) = m
+    def handle_reply_message(self, message):
+        (view_number, req_num, result) = message
+        if self.view_num != view_number:
+            self.view_num = view_number
+            self.primary = self.config[self.view_num]
+
+        print(
+            "Client:: The current view is :",
+            self.view_num,
+            "message req_num",
+            req_num,
+            "results",
+            self.results,
+        )
+        if req_num not in self.results:
+            self.results[req_num] = result
+        elif self.results[req_num] != result:
+            print(
+                "Client:: Different result for request",
+                req_num,
+                result,
+                "than",
+                self.results[req_num],
+            )
+
+    def listen(self):
+        self.socket.listen()
+        while True:
+            try:
+                conn, _ = self.socket.accept()
+                data = conn.recv(1024)
+                message = data.decode("utf-8")
+                self.last_message = json.loads(message)
+                conn.close()
+            except OSError:
+                break
+
+            (order, m) = self.last_message
+            print("Client:: RECEIVED REPLY", m)
             if order == "REPLY":
-                self.cur_req += 1
-                if self.v != view_number:
-                    self.v = view_number
-                    self.primary = self.config[self.v]
+                self.handle_reply_message(m)
 
-                print("Client:: The current view is :", self.v)
-                if c_id not in self.results:
-                    self.results[c_id] = result
-                elif self.results[c_id] != result:
-                    print('Client:: Different result for request',
-                          c_id, result, 'than', self.results[c_id])
-        writer.close()
     # ========================================================================
