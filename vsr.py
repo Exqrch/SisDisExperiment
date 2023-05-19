@@ -3,16 +3,7 @@ import time
 import random
 import json
 import socket
-
-MAX_NOPS = 10
-
-
-def operation(i):
-    return lambda state: (state + [i], ["result", i, "on", state])
-
-
-operations = {i: operation(i) for i in range(MAX_NOPS)}
-
+import logging
 
 class Replica(Node):
     def __init__(
@@ -357,7 +348,7 @@ class Replica(Node):
                         self.client_table[message[1]][1],
                     ),
                 )
-                self.send_to_client(c_id, json.dumps(message))
+                self.send_to_client(json.dumps(message), c_id)
 
             # If the request-number s isn’t bigger than the information in the table it drops the request
             else:
@@ -380,22 +371,8 @@ class Replica(Node):
             print(
                 f"Replica:: Backup: PREPARE handler view_num={view_num} m={m} op_num={op_num} commit_num={commit_num}"
             )
-            print(
-                f"Replica:: Backup: PREPARE handler CONDITION={self.num_prepare_latest == self.op_num + 1} last_message={self.last_message}"
-            )
             if commit_num > self.last_commit_num:
                 self.last_commit_num = commit_num
-
-            # if (
-            #     self.num_prepare_latest > self.num_prepare_obsolete
-            #     or self.heartbeat == 1
-            # ):
-            #     self.num_prepare_obsolete = self.num_prepare_latest
-            #     print(
-            #         "Replica:: Backup: Prepare message / heartbeat from the primary received..."
-            #     )
-            #     self.commit_prev_operation()
-            #     self.heartbeat = 0
 
     def handle_prepare_ok_message(self, message):
         if self.is_primary_replica():
@@ -433,13 +410,12 @@ class Replica(Node):
                             ),
                         )
                         print("REPLY message", message)
-                        self.send_to_client(client, json.dumps(message))
+                        self.send_to_client(json.dumps(message), client)
 
     def get_vs_max(self, c_id):
         if c_id not in self.client_table.keys():
             vs_max = -1
         else:
-            # max(setof(req, received(('REQUEST',_,_c, req))))
             vs_max = self.client_table[c_id][0]
         return vs_max
 
@@ -492,31 +468,40 @@ class Client:
         timer = time.monotonic_ns()
         self.success = False
 
-        payload = "c=" + str(random.randint(1, 100))
-        SET = False
+        with open('queries/best/vsr/query_1.txt', 'r') as f:
+            for i, message in enumerate(f.readlines()):
+                query_timer = time.monotonic_ns()
+                [query, payload] = message.strip().split("-")
+                # Sending request to primary
+                if message == "":
+                    break
+                if query == "SET":
+                    while not self.success:
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            message = json.dumps(
+								("REQUEST", (payload, self.c_id, self.req_num))
+							)
+                            s.connect(self.primary)
+                            s.sendall(message.encode("utf-8"))
 
-        # Sending request to primary
-        if SET:
-            while not self.success:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    message = json.dumps(
-                        ("REQUEST", (payload, self.c_id, self.req_num))
-                    )
-                    s.connect(self.primary)
-                    s.sendall(message.encode("utf-8"))
+                        self.start_timer()
+                else:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        data = json.dumps(("READ", (payload)))
+                        s.connect(self.primary)
+                        s.sendall(data.encode("utf-8"))
+                        data = s.recv(1024)
+                        message = data.decode("utf-8")
+                        print("RECEIVED RESPONSE", message)
+                query_timer_end = time.monotonic_ns()
+                print(f"Query {query}-{payload} took: {query_timer_end - query_timer} start time {query_timer} end time {query_timer_end}")
+        
 
-                self.start_timer()
-        else:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                message = json.dumps(("READ", ("c")))
-                s.connect(self.primary)
-                s.sendall(message.encode("utf-8"))
-                data = s.recv(1024)
-                message = data.decode("utf-8")
-                print("RECEIVED RESPONSE", message)
+        
 
         print("Client:: Finished sending message to replica")
-        print("QUERY TIME TAKEN", time.monotonic_ns() - timer)
+        timer_end = time.monotonic_ns()
+        print(f"Runtime Taken {timer_end - timer} start time {timer} end time {timer_end}")
 
     def start_timer(self):
         timer_end = time.monotonic_ns() + self.tout * 10**9

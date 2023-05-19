@@ -17,11 +17,11 @@ def main():
     f = 1
     quorumsize = f + 1
 
-    replica_1 = Replica(network, 0, node_addresses[0], quorumsize, 5, clients)
-    replica_2 = Replica(network, 1, node_addresses[1], quorumsize, 5, clients)
-    replica_3 = Replica(network, 2, node_addresses[2], quorumsize, 5, clients)
-    replica_4 = Replica(network, 3, node_addresses[3], quorumsize, 5, clients)
-    replica_5 = Replica(network, 4, node_addresses[4], quorumsize, 5, clients)
+    replica_1 = Replica(network, 0, node_addresses[0], quorumsize, 100, clients)
+    replica_2 = Replica(network, 1, node_addresses[1], quorumsize, 100, clients)
+    replica_3 = Replica(network, 2, node_addresses[2], quorumsize, 100, clients)
+    replica_4 = Replica(network, 3, node_addresses[3], quorumsize, 100, clients)
+    replica_5 = Replica(network, 4, node_addresses[4], quorumsize, 100, clients)
 
     replicas = [replica_1, replica_2, replica_3, replica_4, replica_5]
 
