@@ -3,7 +3,6 @@ from network import Network
 import threading
 import time
 
-
 def main():
     timer = time.monotonic_ns()
 
@@ -17,26 +16,22 @@ def main():
     f = 1
     quorumsize = f + 1
 
-    replica_1 = Replica(network, 0, node_addresses[0], quorumsize, 100, clients)
-    replica_2 = Replica(network, 1, node_addresses[1], quorumsize, 100, clients)
-    replica_3 = Replica(network, 2, node_addresses[2], quorumsize, 100, clients)
-    replica_4 = Replica(network, 3, node_addresses[3], quorumsize, 100, clients)
-    replica_5 = Replica(network, 4, node_addresses[4], quorumsize, 100, clients)
+    replica_0 = Replica(network, 0, node_addresses[0], quorumsize, 30, clients)
+    replica_1 = Replica(network, 1, node_addresses[1], quorumsize, 30, clients)
+    replica_2 = Replica(network, 2, node_addresses[2], quorumsize, 30, clients)
+    replica_3 = Replica(network, 3, node_addresses[3], quorumsize, 30, clients)
+    replica_4 = Replica(network, 4, node_addresses[4], quorumsize, 30, clients)
 
-    replicas = [replica_1, replica_2, replica_3, replica_4, replica_5]
+    replicas = [replica_0, replica_1, replica_2, replica_3, replica_4]
 
     for replica in replicas:
-        listen_thread = threading.Thread(target=replica.listen)
-        listen_thread.name = f"listen_thread_{replica.node_id}"
-        listen_thread.start()
-
         run_thread = threading.Thread(target=replica.run)
         run_thread.name = f"run_thread_{replica.node_id}"
         run_thread.start()
 
-    print("All replicas are listening")
+    print("All replicas are listening", time.monotonic_ns() - timer)
 
-    client = Client(node_addresses, 10, ip, 5000)
+    client = Client(node_addresses, 30, ip, 5000)
     listen_thread = threading.Thread(target=client.listen)
     listen_thread.name = f"client_listen_thread"
     listen_thread.start()
