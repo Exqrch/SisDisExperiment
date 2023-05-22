@@ -49,27 +49,30 @@ def main():
         threads.append(thread)
         thread.start()
 
+    query_type = input ("Queries type (best/worst):")
+    logger.info("Please wait, the system is searching for their leader")
     time.sleep(10)
 
-    filename = 'queries/worst/quorum/query_1.txt'
+    filename = f'queries/{query_type}/quorum/query_1.txt'
     with open(filename, 'r') as file:
         for i, message in enumerate(file.readlines()):
             time.sleep(1)
             message_list = message.strip().split("-")
             if 'read' in message:
-                leader.read()
+                leader.read(message_list[1])
             elif 'write' in message:
-                leader.write()
+                leader.write(message_list[1], message_list[2])
             elif 'kill' in message:
-                list_nodes[message_list[1]].stop()
+                list_nodes[int(message_list[1])].stop()
+                logging.info(f'nodes {message_list[1]} killed')
 
                 if message_list[1] == leader_id:
-
                     time.sleep(10)
+                    logging.info(f'nodes {message_list[1]} is a leader')
             elif 'restart' in message:
-                list_nodes[message_list[1]].restart()
+                list_nodes[int(message_list[1])].restart()
+                logging.info(f'nodes {message_list[1]} restarted')
             elif 'end' in message:
-                logger.info("Masuk Sini")
                 for node in list_nodes:
                     node.stop()
                 

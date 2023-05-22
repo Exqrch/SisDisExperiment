@@ -15,16 +15,13 @@ class Quorum:
                  heartbeat_duration: float, leader_id_callback):
         
         # Initiate Needed Variable
-        logging.info(f"Initialise port and node dictionary...")
         self.port = port
         self.neighbors_ports = neighbors_ports
         self.new_neighbors_ports = neighbors_ports
         self.node_id = node_id
         
-        logging.info(f"Initialise persistent variable...")
         self.heartbeat_duration = heartbeat_duration
 
-        logging.info(f"Initialise volatile state...")
         self.term = 0
         self.vote = {}
         self.election_timer = round(random.uniform(lb_fault_duration, lb_fault_duration+4),1)
@@ -32,21 +29,17 @@ class Quorum:
         self.voter = []
         self.iteration = 2
 
-        logging.info(f"Initialise flag variable...")
         self.role = 'follower'
         self.leader_ports = 0
         self.logs = {}
 
-        logging.info(f"Initialise lock variable...")
         self.is_continue = is_continue
         self.lb_fault_duration = lb_fault_duration
 
-        logging.info(f"Initialise election timer thread...")
-        self.timer_thread = threading.Thread(target=self.election_timer_procedure)
-        self.timer_thread.name="start->election_timer"
-
         self.stop_signal = threading.Event()
         self.leader_id_callback = leader_id_callback
+
+        self.thread = None
 
 
     def reset_timer(self):
@@ -56,7 +49,7 @@ class Quorum:
     def election_timer_procedure(self):
         # Initiate timer for election
 
-        while True:
+        while self.timer_thread_flag:
             # Run Election Timer per 0.1s
             time.sleep(0.1)
             self.election_timer = round(self.election_timer - 0.1, 1)
@@ -101,7 +94,7 @@ class Quorum:
     def sending_procedure(self):
 
         leader_timer = 0.0
-        while True:
+        while self.send_thread_flag:
             if self.role == 'leader':
                 time.sleep(0.1)
                 leader_timer = round(leader_timer + 0.1, 1)
@@ -115,6 +108,7 @@ class Quorum:
                         message_dict['message'] = 'log_request'
                         message_dict['ports'] = self.port
                         message_dict['sender_port'] = self.port
+                        message_dict['logs'] = self.logs
                         UdpSocket.send(json.dumps(message_dict), default_port+i)
             else:
                 leader_timer = 0.0
@@ -127,6 +121,7 @@ class Quorum:
         reset_thread.start()
         self.leader_ports = dict_json['ports']
         self.term = dict_json['term']
+        self.logs = dict_json['logs']
         if dict_json['ports'] not in self.alive_ports:
             self.alive_ports.append(dict_json['ports'])
 
@@ -141,7 +136,7 @@ class Quorum:
                     
     def listening_procedure(self):
         node_socket = UdpSocket(self.port)
-        while True:
+        while self.listen_thread_flag:
             message, address = node_socket.listen()
             dict_json = json.loads(message)
 
@@ -188,31 +183,41 @@ class Quorum:
                         reset_thread.name=f"Thread-{self.iteration}"
                         reset_thread.start()
 
-
     def start(self):
-        # TODO
+        self.timer_thread = threading.Thread(target=self.election_timer_procedure)
+        self.timer_thread.name="start->election_timer"
+        self.timer_thread_flag = True
         self.timer_thread.start()
 
-        listen_thread = threading.Thread(target=self.listening_procedure)
-        listen_thread.name="listen_procedure_thread"
-        listen_thread.start()
+        self.listen_thread = threading.Thread(target=self.listening_procedure)
+        self.listen_thread.name="listen_procedure_thread"
+        self.listen_thread_flag = True
+        self.listen_thread.start()
 
-        send_thread = threading.Thread(target=self.sending_procedure())
-        send_thread.start()
-
-        pass
+        self.send_thread = threading.Thread(target=self.sending_procedure)
+        self.send_thread_flag = True
+        self.send_thread.start()
     
     def stop(self):
         logging.info(f'Node {self.node_id} Stopped')
+        self.timer_thread_flag = False
+        self.timer_thread.join()
+
+        self.listen_thread_flag = False
+        self.listen_thread.join()
+
+        self.send_thread_flag = False
+        self.send_thread.join()
         self.stop_signal.set()
     
-    def read(self):
-        logging.info("read query kepanggil")
+    def read(self,key):
+        logging.info(f"Read Query: {key} value is {self.logs[key]}")
     
-    def write(self):
-        logging.info("write query kepanggil")
+    def write(self, key, value):
+        self.logs[key] = value
+        logging.info(f"Write query: {key} saved with value {value}")
     
     def restart(self):
         print(f"Node {self.node_id}: Restarted")
         self.stop_signal.clear()
-        threading.Thread(target=self.run).start()
+        threading.Thread(target=self.start).start()
