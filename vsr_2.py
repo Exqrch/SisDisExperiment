@@ -5,6 +5,11 @@ import json
 import logging
 import threading
 
+logging.basicConfig(format='%(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
+                    datefmt='%Y-%m-%d:%H:%M:%S',
+                    level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 class Replica(Node):
     def __init__(
         self,
@@ -57,33 +62,33 @@ class Replica(Node):
         # Operation Timer
         self.view_change_timer = dict()
 
-        print(f"Replica:{self.node_id}: Setup completed")
+        logger.info(f"Replica:{self.node_id}: Setup completed")
 
-    def add_client_callback(self, callback):
-        self.callback = callback
+    # def add_client_callback(self, callback):
+    #     self.callback = callback
 
     def stop_replica(self):
-        print(f"Replica:{self.node_id}:{time.monotonic_ns()}: Stopping replica...")
+        logger.info(f"Replica:{self.node_id}:{time.monotonic_ns()}: Stopping replica...")
         self.status = 'STOPPED'
         self.done = True
-        print("STOPPING", self.node_id, self.status, self)
+        logger.info(f"STOPPING {self.node_id} {self.status} {self}")
 
     def restore_replica(self):
-        print(f"Replica:{self.node_id}:{time.monotonic_ns()}: Restoring replica...")
+        logger.info(f"Replica:{self.node_id}:{time.monotonic_ns()}: Restoring replica...")
+        time.sleep(1)
         self.status = 'NORMAL'
         self.done = False
-        self.start()
+        logger.info(f"RESTORING {self.node_id} {self.status} {self}")
 
     def handle_read_message(self, message):
         if self.is_primary_replica():
-            print(f"Replica:{self.node_id}:{time.monotonic_ns()}: Primary: READ message handler")
+            logger.info(f"Replica:{self.node_id}:{time.monotonic_ns()}: Primary: READ message handler")
             self.num_req_latest += 1
             (k, c_id, s) = message
 
             payload =  ("REPLY", (self.view_num, s, None))
             for i in range(len(self.logs) - 1, -1, -1):
                 value = self.logs[i]
-                print('VALUE', value)
                 if value[1][0][0] == k:
                     payload =  ("REPLY", (self.view_num, s, value[1][0]))
                     self.send_to_client(json.dumps(payload))
@@ -99,8 +104,7 @@ class Replica(Node):
 
 
     def send_to_client(self, message, c_id=5000):
-        print(f"SEND TO CLIENT {time.monotonic_ns()}, message {message}, addr {self.client_addr}")
-        # self.callback(message)
+        logger.info(f"SEND TO CLIENT {time.monotonic_ns()}, message {message}, addr {self.client_addr}")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect(self.client_addr)
             s.sendall(message.encode("utf-8"))
@@ -115,7 +119,7 @@ class Replica(Node):
                 self.start_primary_timer()
 
                 # Timeout
-                print(f"Replica:{self.node_id}: Primary timeout occured, sending COMMIT")
+                logger.info(f"Replica:{self.node_id}: Primary timeout occured, sending COMMIT")
                 message = ("COMMIT", (self.view_num, self.commit_num))
                 self.broadcast(json.dumps(message))
 
@@ -123,7 +127,7 @@ class Replica(Node):
                 self.start_backup_timer()
 
                 # Timeout
-                print(f"Replica:{self.node_id}: Backup timeout occured, requesting VIEW_CHANGE")
+                logger.info(f"Replica:{self.node_id}: Backup timeout occured, requesting VIEW_CHANGE")
                 self.last_normal_view = self.view_num
                 self.start_view_change_req.clear()
                 self.view_num = (self.view_num + 1) % len(self.network.nodes)
@@ -151,23 +155,19 @@ class Replica(Node):
 
         if self.commit_num < self.last_commit_num and has_last_commited:
             my_commit = self.commit_num + 1
-            print(f"Replica:{self.node_id}: Backup: Some pending operations will be commited now...")
+            logger.info(f"Replica:{self.node_id}: Backup: Some pending operations will be commited now...")
             for op in range(my_commit, has_last_commited):
                 message = self.get_matching_logs(op)
                 (payload, client, req) = message
                 self.commit_num += 1
                 self.client_table[client][1] = True
                 self.client_table[client][2] = payload
-                print(
-                    f"Replica:{self.node_id}: Backup: Completing old operations.. Commit number {self.commit_num} and payload {payload}"
-                )
+                logger.info(f"Replica:{self.node_id}: Backup: Completing old operations.. Commit number {self.commit_num} and payload {payload}")
 
             self.commit_num += 1
             self.client_table[m[1]][1] = True
             self.client_table[m[1]][2] = m[2]
-            print(
-                f"Replica:{self.node_id}: Backup: Latest commit number {self.commit_num} and operation {m[0]}"
-            )
+            logger.info(f"Replica:{self.node_id}: Backup: Latest commit number {self.commit_num} and operation {m[0]}")
 
     def get_matching_logs(self, curr_op):
         for oper, m in self.logs:
@@ -176,7 +176,7 @@ class Replica(Node):
 
     def start_primary_timer(self):
         timer_end = time.monotonic_ns() + self.tout * 10**9
-        print(f"Replica:{self.node_id}: Primary timer starts", time.monotonic_ns(), timer_end, self.status, self.view_num)
+        logger.info(f"Replica:{self.node_id}: Primary timer starts {time.monotonic_ns()}, {timer_end}, {self.status}, {self.view_num}")
         while time.monotonic_ns() < timer_end and self.status == "NORMAL":
             if self.num_req_latest > self.num_prepare_obsolete:
                 self.num_req_obsolete = self.num_req_latest
@@ -189,17 +189,13 @@ class Replica(Node):
         waits until it has entries in its log for all earlier requests (doing state transfer if necessary
         to get the missing information).
         """
-        print(
-            f"Replica:{self.node_id}: Backup: Waiting for prepare having next op num:",
-            self.op_num + 1,
-        )
+        logger.info(f"Replica:{self.node_id}: Backup: Waiting for prepare having next op num: {self.op_num + 1}")
         timer_end = time.monotonic_ns() + self.tout * 10**9
-        print(f"Replica:{self.node_id}: Backup timer starts", time.monotonic_ns(), timer_end)
+        logger.info(f"Replica:{self.node_id}: Backup timer starts, {time.monotonic_ns()}, {timer_end}")
         while time.monotonic_ns() < timer_end:
             if (
                 self.num_prepare_latest == self.op_num + 1
             ):  # Await untill it has all previous entries
-                print(self.last_message)
                 (view_num, m, op_num, commit_num) = self.last_prepare_message
                 self.commit_prev_operation()
                 self.op_num += 1  # Then increments it's op_num
@@ -207,7 +203,7 @@ class Replica(Node):
                 # Update the client_table
                 self.client_table[m[1]] = [m[2], False, None]
 
-                print(f"Replica:{self.node_id}: Backup: Sending PREPARE_OK to primary...")
+                logger.info(f"Replica:{self.node_id}: Backup: Sending PREPARE_OK to primary...")
                 message = ("PREPARE_OK", (self.view_num, self.op_num, self.node_id))
                 self.send_to(self.curr_primary_id(), json.dumps(message))
                 timer_end += self.tout * 10**9
@@ -217,9 +213,7 @@ class Replica(Node):
                 or self.heartbeat == 1
             ):
                 self.num_prepare_obsolete = self.num_prepare_latest
-                print(
-                    f"Replica:{self.node_id}: Backup: Prepare message / heartbeat from the primary received..."
-                )
+                logger.info(f"Replica:{self.node_id}: Backup: Prepare message / heartbeat from the primary received...")
                 self.commit_prev_operation()
                 self.heartbeat = 0
                 timer_end += self.tout * 10**9
@@ -237,7 +231,7 @@ class Replica(Node):
                 break
 
             (order, m) = self.last_message
-            print(f"Replica:{self.node_id}:{time.monotonic_ns()}: Received message:", order, m)
+            logger.info(f"Replica:{self.node_id}:{time.monotonic_ns()}: Received message: {order} {m}")
             
             # For scenario purposes
             if order == "STOP":
@@ -274,12 +268,17 @@ class Replica(Node):
             conn.close()
 
     def handle_commit_message(self, message):
+        (v, k) = message
+        if self.is_primary_replica():
+            if v >= self.view_num:
+                self.view_num = v   
+        
         if self.is_backup_replica():
-            (v, k) = message
-            print(f"Replica:{self.node_id}: Backup: Received Hearbear/COMMIT from the primary...")
-            self.heartbeat = 1
-            if k > self.last_commit_num:
-                self.last_commit_num = k
+            if v >= self.view_num:
+                logger.info(f"Replica:{self.node_id}: Backup: Received Hearbear/COMMIT from the primary...")
+                self.heartbeat = 1
+                if k > self.last_commit_num:
+                    self.last_commit_num = k
 
     def handle_start_view_message(self, message):
         """
@@ -297,20 +296,16 @@ class Replica(Node):
         if self.status == "VIEW_CHANGE":
             self.stop_view_change_timer(self.view_num)
 
-            print(f"Replica:{self.node_id}: Backup: Starting a new view {view_num}, view change timer={self.view_change_timer[self.view_num]}")
+            logger.info(f"Replica:{self.node_id}: Backup: Starting a new view {view_num}, view change timer={self.view_change_timer[self.view_num]}")
             self.status = "NORMAL"
             self.view_num = view_num
             self.op_num = op_num
             self.logs = new_logs
             
-            print(f"Replica:{self.node_id}: Move to new view", view_num )
+            logger.info(f"Replica:{self.node_id}: Move to new view {view_num}")
 
             if commit_num < self.op_num:
-                print(
-                    f"Replica:{self.node_id}: Sending PREPARE_OK to primary",
-                    self.view_num,
-                    self.op_num,
-                )
+                logger.info(f"Replica:{self.node_id}: Sending PREPARE_OK to primary {self.view_num} {self.op_num}")
                 message = ("PREPARE_OK", (self.view_num, self.op_num, self.node_id))
                 self.send_to(self.curr_primary_id(), json.dumps(message))
 
@@ -324,11 +319,7 @@ class Replica(Node):
                     self.client_table[client][1] = True
                     self.client_table[client][2] = payload
                     self.commit_num += 1
-                    print(
-                        "#### START_VIEW: Completing old operations..current commit number and op",
-                        self.commit_num,
-                        self.op_num,
-                    )
+                    logger.info(f"#### START_VIEW: Completing old operations..current commit number and op {self.commit_num} {self.op_num}")
 
     def handle_do_view_change_message(self, message):
         """
@@ -355,7 +346,7 @@ class Replica(Node):
             self.start_view_change_timer()
 
         if self.status == "VIEW_CHANGE":
-            print(f"Replica:{self.node_id}: DO_VIEW_CHANGE handler")
+            logger.info(f"Replica:{self.node_id}: DO_VIEW_CHANGE handler")
             self.do_view_change_req.append(message)
 
             # Check how many do view change
@@ -373,13 +364,13 @@ class Replica(Node):
                 
                 if len(self.logs) > 0:
                     self.op_num = self.logs[-1][0]
-                    print(f"Replica:{self.node_id}: Primary: Setting op number to {self.op_num}")
+                    logger.info(f"Replica:{self.node_id}: Primary: Setting op number to {self.op_num}")
                 
                 latest_commit_num = max(self.last_normal_view, max(self.do_view_change_req, key=lambda req: req[3])[3])
                 self.commit_num = latest_commit_num
                 self.status = "NORMAL"
                 
-                print(f"Replica:{self.node_id}: Primary: Starting a new view {self.view_num}")
+                logger.info(f"Replica:{self.node_id}: Primary: Starting a new view {self.view_num}")
                 self.do_view_change_req.clear()
                 message = ("START_VIEW", (self.view_num, self.logs, self.op_num, self.commit_num, self.node_id))
                 self.broadcast(json.dumps(message))
@@ -394,7 +385,7 @@ class Replica(Node):
 		it receives a STARTVIEWCHANGE or DOVIEWCHANGE message for a view with a larger number 
 		than its own view-number.
 		'''
-        print(f"Replica:{self.node_id}: START_VIEW_CHANGE handler")
+        logger.info(f"Replica:{self.node_id}: START_VIEW_CHANGE handler")
         (view_num, req_num) = message
         if view_num > self.view_num and self.status == "NORMAL":
             self.last_normal_view = self.view_num
@@ -418,15 +409,15 @@ class Replica(Node):
 		'''
         if view_num == self.view_num and self.status == "VIEW_CHANGE":
             self.start_view_change_req.append(message)
-            print(f"Replica:{self.node_id}: view_change_req {self.start_view_change_req}")
+            logger.info(f"Replica:{self.node_id}: view_change_req {self.start_view_change_req}")
             if len(self.start_view_change_req) >= self.quorumsize:
-                print(f"Replica:{self.node_id}: Backup: Sending DO_VIEW_CHANGE to new primary {self.curr_primary_id()}")
+                logger.info(f"Replica:{self.node_id}: Backup: Sending DO_VIEW_CHANGE to new primary {self.curr_primary_id()}")
                 message = ('DO_VIEW_CHANGE', (self.view_num, self.logs, self.last_normal_view, self.op_num, self.commit_num, self.node_id))
                 self.send_to(self.curr_primary_id(), json.dumps(message))
 
     def handle_request_message(self, message):
         if self.is_primary_replica():
-            print(f"Replica:{self.node_id}: Primary: REQUEST handler", message)
+            logger.info(f"Replica:{self.node_id}: Primary: REQUEST handler {message}")
             self.num_req_latest += 1
             (op, c_id, s) = message
             # It compares the request-number in the request with the information in the client table.
@@ -439,7 +430,7 @@ class Replica(Node):
                 # Updates the information for this client in the client-table to contain the new request number 's'
                 self.client_table[c_id] = (s, False, None)
 
-                print(f"Replica:{self.node_id}: Sending request to other replicas", self.req_num)
+                logger.info(f"Replica:{self.node_id}: Sending request to other replicas {self.req_num}")
                 self.num_prepare_ok = 0
                 message = (
                     "PREPARE",
@@ -482,9 +473,7 @@ class Replica(Node):
             (view_num, m, op_num, commit_num) = message
             self.last_prepare_message = message
 
-            print(
-                f"Replica:{self.node_id}: Backup: PREPARE handler view_num={view_num} m={m} op_num={op_num} commit_num={commit_num}"
-            )
+            logger.info(f"Replica:{self.node_id}: Backup: PREPARE handler view_num={view_num} m={m} op_num={op_num} commit_num={commit_num}")
             if commit_num > self.last_commit_num:
                 self.last_commit_num = commit_num
 
@@ -493,17 +482,15 @@ class Replica(Node):
             (view_num, op_num, i) = message
             self.num_prepare_ok += 1
 
-            print(f"Replica:{self.node_id}: Primary: PREPARE_OK handler num_prepare_ok", self.num_prepare_ok)
+            logger.info(f"Replica:{self.node_id}: Primary: PREPARE_OK handler num_prepare_ok {self.num_prepare_ok}")
             if self.num_prepare_ok >= self.quorumsize:
                 start = self.commit_num + 1
                 for operation in range(start, op_num + 1):
-                    print(
-                        f"Replica:{self.node_id}: Primay has some uncommited operations. Committing now..."
-                    )
+                    logger.info(f"Replica:{self.node_id}: Primay has some uncommited operations. Committing now...")
                     client_info = self.get_matching_logs(operation)
-                    print("==========LOGS==============", self.logs)
-                    print("==========CLIENT INFO=======", client_info)
-                    print("==========CLIENT TABLE======", self.client_table)
+                    logger.info(f"==========LOGS============== {self.logs}")
+                    logger.info(f"==========CLIENT INFO======= {client_info}")
+                    logger.info(f"==========CLIENT TABLE====== {self.client_table}")
                     (payload, client, req) = client_info
                     if (
                         req > self.client_table[client][0]
@@ -512,9 +499,7 @@ class Replica(Node):
                         # Do client operation here
                         self.client_table[client] = (req, True, payload)
                         self.commit_num += 1
-                        print(
-                            f"Replica:{self.node_id}: Primary: Commit number {self.commit_num} and payload {payload}"
-                        )
+                        logger.info(f"Replica:{self.node_id}: Primary: Commit number {self.commit_num} and payload {payload}")
                         message = (
                             "REPLY",
                             (
@@ -523,7 +508,7 @@ class Replica(Node):
                                 self.client_table[client][2],
                             ),
                         )
-                        print("REPLY message", message)
+                        logger.info(f"REPLY message {message}")
                         self.send_to_client(json.dumps(message), client)
 
     def start_view_change_timer(self):
@@ -535,7 +520,7 @@ class Replica(Node):
         self.view_change_timer[view_num][1] = timer
         self.view_change_timer[self.view_num][2] = self.view_change_timer[self.view_num][1] - self.view_change_timer[self.view_num][0]
 
-        print(f"Replica:{self.node_id}: View change timer {view_num} ={self.view_change_timer[self.view_num]}")
+        logger.info(f"Replica:{self.node_id}: View change timer {view_num} ={self.view_change_timer[self.view_num]}")
 
     def get_vs_max(self, c_id):
         if c_id not in self.client_table.keys():
@@ -570,6 +555,7 @@ class Client:
         self.start_time = time.monotonic_ns()
         self.query_time = dict()
         self.end_time = None
+        self.scenario = "worst"
 
         self.last_operation = None
         # Configuration setting of the current replica group
@@ -582,7 +568,7 @@ class Client:
         self.results = dict()
         self.tout = tout
         self.success = False
-        print("Client::", self, "setup completed")
+        logger.info(f"Client::{self} setup completed")
         
     def run(self):
         threading.Thread(target=self.listen).start()
@@ -594,18 +580,21 @@ class Client:
     # Update request number only after the previous request has been completed
     # ========================================================================
     def start(self):
-        print("Client:: Running...")
+        logger.info("Client:: Running...")
         timer = time.monotonic_ns()
 
-        with open('queries/best/vsr/query_1.txt', 'r') as f:
+        with open(f'queries/{self.scenario}/vsr/query_1.txt', 'r') as f:
             for i, line in enumerate(f.readlines()):
-                print("LINE",line)
+                if line == "":
+                    break
+                
+                logger.info(f"LINE {line}")
                 self.success = False
                 query_timer = time.monotonic_ns()
                 [query, payload] = line.strip().split("-")                
                 self.query_time[self.req_num] = [query, payload, query_timer, None, None]
                 # Sending request
-                print(f"Client:{time.monotonic_ns()}: Sending request {query} {payload}")
+                logger.info(f"Client:{time.monotonic_ns()}: Sending request {query} {payload}")
                 if query == "STOP":
                     data = json.dumps(
                         ("STOP", (payload))
@@ -624,20 +613,20 @@ class Client:
                     data = json.dumps(
                         ("REQUEST", (payload, self.c_id, self.req_num))
                     )
-                    self.last_message = data
+                    self.last_operation = data
                     self.send_to(self.primary, data)
 
                 if query == "READ":
                     data = json.dumps(("READ", (payload, self.c_id, self.req_num)))
-                    self.last_message = data
+                    self.last_operation = data
                     self.send_to(self.primary, data)
                         
                 while not self.success:
                     continue
 
-        print("Client:: Finished sending message to replica")
+        logger.info("Client:: Finished sending message to replica")
         timer_end = time.monotonic_ns()
-        print(f"Runtime Taken {timer_end - timer} start time {timer} end time {timer_end}")
+        logger.info(f"Runtime Taken {timer_end - timer} start time {timer} end time {timer_end}")
         
     def send_to(self, addr, data):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -656,36 +645,25 @@ class Client:
             self.query_time[self.req_num][4] = self.query_time[self.req_num][3] - self.query_time[self.req_num][2]
             (query, payload, start, end, diff) = self.query_time[self.req_num]
 
-            print(f"Query {query}-{payload} took={diff}ns, start time={start}, end time={end}, view num={self.view_num}")
-            print(f"LAST VIEW NUM {self.view_num}")
+            log = f"Query {query}-{payload} took={diff}ns, start time={start}, end time={end}, view num={self.view_num}"
+            with open(f"vsr_report/time/{self.scenario}.txt", 'a') as f:
+                f.write(f"{log}\n")
+            logger.info(log)
             self.req_num += 1
             self.success = True
         
         if self.results[req_num] != result:
-            print(
-                "Client:: Different result for request",
-                req_num,
-                result,
-                "than",
-                self.results[req_num],
-            )
+            logger.info(f"Client:: Different result for request {req_num}, {result}, than {self.results[req_num]}")
         
-        print(
-            "Client:: The current view is :",
-            self.view_num,
-            "message req_num",
-            req_num,
-            "results",
-            self.results,
-        )
+        logger.info(f"Client:: The current view is : {self.view_num}, message_req_num {req_num}, results {self.results}")
 
     def handle_view_number_message(self, message):
         (view_number, node_id) = message
         if self.view_num != view_number:
             self.view_num = view_number
             self.primary = self.config[self.view_num]
-            print("last operation", self.last_operation)
-            self.send_to(self.primary, self.last_message)
+            logger.info(f"last operation {self.last_operation}")
+            self.send_to(self.primary, self.last_operation)
 
     def listen(self):
         self.socket.listen()
@@ -699,7 +677,7 @@ class Client:
                 break
 
             (order, m) = json.loads(message)
-            print(f"Client:{time.monotonic_ns()}: RECEIVED", order, m)
+            logger.info(f"Client:{time.monotonic_ns()}: RECEIVED {order} {m}")
             if order == "REPLY":
                 self.handle_reply_message(m)
             if order == "VIEW_NUMBER":

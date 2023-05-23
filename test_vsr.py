@@ -20,7 +20,7 @@ def main():
     quorumsize = f + 1
     
     for i in node_ids:
-        run_process = multiprocessing.Process(target=start_replica, args=(network, i, node_addresses[i], quorumsize, 10))
+        run_process = multiprocessing.Process(target=start_replica, args=(network, i, node_addresses[i], quorumsize, 1))
         run_process.name = f"run_process_replica_{i}"
         run_process.start()
 
