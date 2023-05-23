@@ -1,5 +1,4 @@
 STOP-0
-STOP-1
 SET-a=1
 READ-a
 SET-b=51
@@ -18,7 +17,6 @@ SET-b=10
 SET-e=99
 SET-f=12
 RESTORE-0
-RESTORE-1
 READ-a
 READ-b
 READ-c
