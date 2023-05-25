@@ -1,0 +1,33 @@
+Start time: 804555250000000
+End time  : 804556156000000 
+Run time  : 0.906 
+Election time: 0.0 
+Average Read Time: 0.015 
+Average Set Time: 0.015 
+=============================
+Detail Report: 
+Node1 : 
+Total Read = 12, Total Set = 8
+Total Read = 0.18, Total Set = 0.12
+Average Read = 0.015, Average Set = 0.015
+=============================
+Query READ-j took: 0.015 
+Query READ-i took: 0.0 
+Query READ-e took: 0.016 
+Query READ-q took: 0.0 
+Query READ-s took: 0.015 
+Query SET-k=58 took: 0.0 
+Query READ-h took: 0.016 
+Query READ-a took: 0.0 
+Query READ-c took: 0.016 
+Query SET-d=3 took: 0.0 
+Query READ-a took: 0.015 
+Query SET-f=57 took: 0.0 
+Query READ-b took: 0.016 
+Query SET-r=90 took: 0.0 
+Query SET-c=87 took: 0.016 
+Query READ-n took: 0.015 
+Query READ-m took: 0.0 
+Query SET-g=74 took: 0.016 
+Query SET-o=81 took: 0.0 
+Query SET-p=68 took: 0.015 

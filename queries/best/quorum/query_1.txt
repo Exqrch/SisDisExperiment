@@ -98,5 +98,3 @@ SET-s=50
 READ-q
 READ-s
 SET-b=97
-end
-

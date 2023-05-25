@@ -22,7 +22,7 @@ class PaxosTest(TestCase):
 		]
 		network = Network(node_ids, node_addresses)
 
-		q_path = 'queries/best/vsr'
+		q_path = 'queries/worst/paxos'
 
 		node1 = PaxosNode(network, 1, ('127.0.0.1', 5001), q_path)
 		node2 = PaxosNode(network, 2, ('127.0.0.1', 5002), q_path)
@@ -42,7 +42,7 @@ class PaxosTest(TestCase):
 		node4.leader_protocol_thread.start()
 		node5.leader_protocol_thread.start()
 
-		time.sleep(10)
+		time.sleep(2)
 
 		# self.assertEqual(node1.is_leader, True)
 		# self.assertEqual(node2.is_leader, False)

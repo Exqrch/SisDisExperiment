@@ -1,31 +1,38 @@
-Start time: 249472390000000
-End time  : 249473500000000 
-Run time  : 1.11 
+Start time: 806280.062
+End time  : 806281.125 
+Run time  : 1.062999999965541 
 Election time: 0.0 
-Average Read Time: 0.016 
-Average Set Time: 0.016 
-Query READ-a took: 0.016 
+Average Read Time: 0.011142857123299368 
+Average Set Time: 0.008666666670857618 
+=============================
+Detail Report: 
+Node4 : 
+Total Read = 7, Total Set = 18
+Total Read = 0.07799999986309558, Total Set = 0.15600000007543713
+Average Read = 0.011142857123299368, Average Set = 0.008666666670857618
+=============================
+Query READ-a took: 0.015999999945051968 
 Query SET-f=57 took: 0.0 
-Query READ-b took: 0.015 
+Query READ-b took: 0.015000000013969839 
 Query SET-r=90 took: 0.0 
-Query SET-c=87 took: 0.0 
-Query SET-t=85 took: 0.016 
-Query READ-k took: 0.016 
-Query SET-l=51 took: 0.015 
+Query SET-c=87 took: 0.01600000006146729 
+Query SET-t=85 took: 0.0 
+Query READ-k took: 0.015999999945051968 
+Query SET-l=51 took: 0.015000000013969839 
 Query READ-a took: 0.0 
-Query SET-e=32 took: 0.016 
-Query READ-p took: 0.016 
-Query SET-g=70 took: 0.015 
+Query SET-e=32 took: 0.015999999945051968 
+Query READ-p took: 0.0 
+Query SET-g=70 took: 0.015000000013969839 
 Query SET-m=70 took: 0.0 
-Query SET-i=13 took: 0.016 
-Query SET-h=26 took: 0.0 
-Query SET-r=77 took: 0.015 
-Query SET-g=69 took: 0.016 
-Query SET-c=94 took: 0.016 
-Query SET-d=78 took: 0.0 
-Query SET-l=48 took: 0.015 
-Query READ-o took: 0.0 
-Query SET-a=41 took: 0.016 
-Query READ-o took: 0.0 
-Query SET-j=82 took: 0.016 
-Query SET-s=3 took: 0.015 
+Query SET-i=13 took: 0.01600000006146729 
+Query SET-h=26 took: 0.015999999945051968 
+Query SET-r=77 took: 0.015000000013969839 
+Query SET-g=69 took: 0.0 
+Query SET-c=94 took: 0.01600000006146729 
+Query SET-d=78 took: 0.015999999945051968 
+Query SET-l=48 took: 0.0 
+Query READ-o took: 0.015000000013969839 
+Query SET-a=41 took: 0.0 
+Query READ-o took: 0.015999999945051968 
+Query SET-j=82 took: 0.015000000013969839 
+Query SET-s=3 took: 0.0 

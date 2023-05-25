@@ -18,7 +18,7 @@ class PaxosNode(Node):
 		super().__init__(network, node_id, node_address)
 
 		# Time-keeping
-		self.start_time = time.monotonic_ns()
+		self.start_time = time.monotonic()
 		self.query_time = []
 		self.end_time = None
 		self.query_directory = query_directory
@@ -83,13 +83,13 @@ class PaxosNode(Node):
 			if (self.leader_id == self.node_id):
 				# print(f"Node {self.node_id} is now leader")
 				self.is_leader = True
-				self.end_election_timer = time.monotonic_ns()
+				self.end_election_timer = time.monotonic()
 				self.leader_query_run()
 			else:
 				if not self.already_request_proposal_id:
 					# print(f"Node {self.node_id} is now request proposal id")
 					self.already_request_proposal_id = True
-					self.end_election_timer = time.monotonic_ns()
+					self.end_election_timer = time.monotonic()
 					threading.Thread(target=self.request_proposal_id).start()
 	# =================================================
 
@@ -275,7 +275,7 @@ class PaxosNode(Node):
 		# 		print(f"the memory of node {self.node_id}\n{memory}\n\n")
 
 		# print(f"QUERY DONE BY {self.node_id} = {self.q_num}")
-		self.query_time.append(time.monotonic_ns())
+		self.query_time.append(time.monotonic())
 		if self.is_leader:
 			# print(f"ROUND {self.proposal_id_lock_value} IS DONE, proposal = {self.current_proposal_order}")
 			self.proposal_id_lock = False
@@ -339,7 +339,7 @@ class PaxosNode(Node):
 		# self.memory = sorted_memory
 		# print(f"Node {self.node_id} Memories:\n{sorted_memory}\n")
 
-		self.end_time = time.monotonic_ns()
+		self.end_time = time.monotonic()
 
 		# Write timing reports
 		report = ""
@@ -371,22 +371,31 @@ class PaxosNode(Node):
 							if 'SET' in line:
 								average_s_time += gap_time[i]
 								s_count += 1
+							i += 1
 
-				average_r_time /= 1e9
-				average_s_time /= 1e9
 				report += f"Start time: {self.start_time}\n"
 				report += f"End time  : {self.end_time} \n"
-				report += f"Run time  : {(self.end_time - self.start_time)/1e9} \n"
-				report += f"Election time: {(self.end_election_timer - self.start_time)/1e9} \n"
+				report += f"Run time  : {(self.end_time - self.start_time)} \n"
+				report += f"Election time: {(self.end_election_timer - self.start_time)} \n"
 				report += f"Average Read Time: {average_r_time/r_count} \n"
 				report += f"Average Set Time: {average_s_time/s_count} \n"
+
+
+				if r_count != 0 and s_count != 0:
+					report += f"=============================\n"
+					report += f"Detail Report: \n"
+					report += f"""Node{self.node_id} : 
+Total Read = {r_count}, Total Set = {s_count}
+Total Read = {average_r_time}, Total Set = {average_s_time}
+Average Read = {average_r_time/r_count}, Average Set = {average_s_time/s_count}\n"""
+					report += f"=============================\n"
 
 				i = 0
 				for line in h.readlines():
 					line = line.strip()
 					if line != '' or line != ' ':
 						if gap_time != []:
-							report += f"Query {line} took: {(gap_time[i]/1e9)} \n"
+							report += f"Query {line} took: {(gap_time[i])} \n"
 							i += 1
 				f.write(report)
 		else:
@@ -394,7 +403,7 @@ class PaxosNode(Node):
 				report += f"Start time: {self.start_time}\n"
 				report += f"End time  : {self.end_time} \n"
 				report += f"Run time  : {self.end_time - self.start_time} \n"
-				report += f"Election time: {(self.end_election_timer - self.start_time)/1e9} \n"
+				report += f"Election time: {(self.end_election_timer - self.start_time)} \n"
 				f.write(report)
 
 
