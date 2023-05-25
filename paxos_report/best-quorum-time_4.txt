@@ -1,0 +1,4 @@
+Start time: 249693703000000
+End time  : 249694312000000 
+Run time  : 609000000 
+Election time: 0.0 
