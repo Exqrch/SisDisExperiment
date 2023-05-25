@@ -83,14 +83,14 @@ def main():
             elif 'SET' in message:
                 value = message_list[1].split("=")
                 leader.write(value[0], value[1])
-            elif 'kill' in message:
+            elif 'STOP' in message:
                 list_nodes[int(message_list[1])].stop()
                 logging.info(f'nodes {message_list[1]} killed')
 
                 if message_list[1] == leader_id:
                     time.sleep(10)
                     logging.info(f'nodes {message_list[1]} is a leader')
-            elif 'restart' in message:
+            elif 'RESTORE' in message:
                 list_nodes[int(message_list[1])].restart()
                 logging.info(f'nodes {message_list[1]} restarted')
             elif 'end' in message:

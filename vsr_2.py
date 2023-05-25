@@ -206,7 +206,7 @@ class Replica(Node):
                 (view_num, m, op_num, commit_num) = self.last_prepare_message
                 self.commit_prev_operation()
                 self.op_num += 1  # Then increments it's op_num
-                self.logs.append((self.op_num, m))  # Append the logs
+                self.logs.append([self.op_num, m])  # Append the logs
                 # Update the client_table
                 self.client_table[m[1]] = [m[2], False, None]
 
@@ -473,7 +473,7 @@ class Replica(Node):
             if s > vs_max:
                 self.op_num += 1  # The primary advances op-number
                 # Appends the request to the end of the log
-                self.logs.append((self.op_num, message))
+                self.logs.append([self.op_num, message])
                 # Updates the information for this client in the client-table to contain the new request number 's'
                 self.client_table[c_id] = (s, False, None)
 
@@ -567,7 +567,10 @@ class Replica(Node):
         self.view_change_timer[view_num][1] = timer
         self.view_change_timer[self.view_num][2] = self.view_change_timer[self.view_num][1] - self.view_change_timer[self.view_num][0]
 
-        logger.info(f"Replica:{self.node_id}: View change timer {view_num} ={self.view_change_timer[self.view_num]}")
+        log = f"Replica:{self.node_id}: View change timer {view_num} ={self.view_change_timer[self.view_num]}"
+        logger.info(log)
+        with open(f"vsr_report/time/view_change.txt", 'a') as f:
+            f.write(f"{log}\n")
 
     def get_vs_max(self, c_id):
         if c_id not in self.client_table.keys():
@@ -602,7 +605,7 @@ class Client:
         self.start_time = time.monotonic_ns()
         self.query_time = dict()
         self.end_time = None
-        self.scenario = "best"
+        self.scenario = "worst"
 
         self.last_operation = None
         # Configuration setting of the current replica group

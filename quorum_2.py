@@ -220,7 +220,10 @@ class Quorum:
     
     def read(self,key):
         start_time = time.monotonic_ns()
-        logging.info(f"Read Query: {key} value is {self.logs[key]}")
+        if key not in self.logs.keys():
+            logging.info(f"Read Query: {key} is not avaiable")
+        else:
+            logging.info(f"Read Query: {key} value is {self.logs[key]}")
         end_time = time.monotonic_ns()
         self.record_queries(end_time-start_time, "read")
         logging.info(f'Read Query Duration: {(end_time-start_time)/1e9}')
