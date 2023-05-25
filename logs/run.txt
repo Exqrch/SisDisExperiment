@@ -1,0 +1,208 @@
+20:57:36 INFO   start->election_timer:94  Election Duration: 1.141
+20:57:40 INFO   start->election_timer:94  Election Duration: 1.203
+20:57:43 INFO   MainThread:232 Write query: a saved with value 1
+20:57:43 INFO   MainThread:235 Write Query Duration: 0.032
+20:57:43 INFO   MainThread:223 Read Query: a value is 1
+20:57:43 INFO   MainThread:226 Read Query Duration: 0.063
+20:57:43 INFO   MainThread:232 Write query: b saved with value 51
+20:57:43 INFO   MainThread:235 Write Query Duration: 0.031
+20:57:43 INFO   MainThread:223 Read Query: b value is 51
+20:57:43 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:43 INFO   MainThread:232 Write query: c saved with value 241
+20:57:43 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:43 INFO   MainThread:223 Read Query: c value is 241
+20:57:43 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:43 INFO   MainThread:232 Write query: d saved with value 11
+20:57:43 INFO   MainThread:235 Write Query Duration: 0.031
+20:57:43 INFO   MainThread:223 Read Query: d value is 11
+20:57:43 INFO   MainThread:226 Read Query Duration: 0.047
+20:57:43 INFO   MainThread:232 Write query: a saved with value 11
+20:57:43 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:43 INFO   MainThread:223 Read Query: a value is 11
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.062
+20:57:44 INFO   MainThread:232 Write query: c saved with value 1123
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.031
+20:57:44 INFO   MainThread:223 Read Query: c value is 1123
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.031
+20:57:44 INFO   MainThread:232 Write query: g saved with value 115
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: a value is 11
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:232 Write query: b saved with value 10
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.031
+20:57:44 INFO   MainThread:232 Write query: e saved with value 99
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.063
+20:57:44 INFO   MainThread:232 Write query: f saved with value 12
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: a value is 11
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.047
+20:57:44 INFO   MainThread:223 Read Query: b value is 10
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: c value is 1123
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.125
+20:57:44 INFO   MainThread:223 Read Query: d value is 11
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: e value is 99
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: f value is 12
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: g value is 115
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:232 Write query: j saved with value 1234
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: j value is 1234
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:232 Write query: i saved with value 95
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: i value is 95
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: e value is 99
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: j value is 1234
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: i value is 95
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: e value is 99
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:232 Write query: q saved with value 45
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:44 INFO   MainThread:232 Write query: s saved with value 50
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.094
+20:57:44 INFO   MainThread:223 Read Query: q value is 45
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.109
+20:57:44 INFO   MainThread:223 Read Query: s value is 50
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:232 Write query: b saved with value 97
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:44 INFO   MainThread:232 Write query: c saved with value 8
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: s value is 50
+20:57:44 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:44 INFO   MainThread:232 Write query: l saved with value 92
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:44 INFO   MainThread:232 Write query: g saved with value 6
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.015
+20:57:44 INFO   MainThread:232 Write query: f saved with value 4
+20:57:44 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:44 INFO   MainThread:223 Read Query: g value is 6
+20:57:45 INFO   MainThread:226 Read Query Duration: 0.093
+20:57:45 INFO   MainThread:223 Read Query: f value is 4
+20:57:45 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:45 INFO   MainThread:223 Read Query: q value is 45
+20:57:45 INFO   MainThread:226 Read Query Duration: 0.016
+20:57:45 INFO   MainThread:232 Write query: r saved with value 41
+20:57:45 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:45 INFO   MainThread:232 Write query: d saved with value 28
+20:57:45 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:45 INFO   MainThread:232 Write query: i saved with value 52
+20:57:45 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:45 INFO   MainThread:232 Write query: k saved with value 1
+20:57:45 INFO   MainThread:235 Write Query Duration: 0.031
+20:57:45 INFO   MainThread:232 Write query: h saved with value 67
+20:57:45 INFO   MainThread:235 Write Query Duration: 0.125
+20:57:45 INFO   MainThread:232 Write query: o saved with value 92
+20:57:45 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:45 INFO   MainThread:223 Read Query: k value is 1
+20:57:45 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:45 INFO   MainThread:223 Read Query: h value is 67
+20:57:45 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:45 INFO   MainThread:223 Read Query: o value is 92
+20:57:45 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:45 INFO   MainThread:232 Write query: n saved with value 11
+20:57:45 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:45 INFO   MainThread:223 Read Query: h value is 67
+20:57:45 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:45 INFO   MainThread:223 Read Query: i value is 52
+20:57:45 INFO   MainThread:226 Read Query Duration: 0.109
+20:57:45 INFO   MainThread:232 Write query: e saved with value 67
+20:57:45 INFO   MainThread:235 Write Query Duration: 0.047
+20:57:45 INFO   MainThread:223 Read Query: j value is 1234
+20:57:45 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:45 INFO   MainThread:232 Write query: m saved with value 939
+20:57:45 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:45 INFO   MainThread:232 Write query: t saved with value 123
+20:57:45 INFO   MainThread:235 Write Query Duration: 0.203
+20:57:45 INFO   MainThread:223 Read Query: m value is 939
+20:57:45 INFO   MainThread:226 Read Query Duration: 0.125
+20:57:45 INFO   MainThread:223 Read Query: t value is 123
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.016
+20:57:46 INFO   MainThread:232 Write query: a saved with value 1
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.031
+20:57:46 INFO   MainThread:223 Read Query: a value is 1
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:232 Write query: b saved with value 51
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: b value is 51
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:232 Write query: c saved with value 241
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.015
+20:57:46 INFO   MainThread:223 Read Query: c value is 241
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:232 Write query: d saved with value 11
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: d value is 11
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.062
+20:57:46 INFO   MainThread:232 Write query: a saved with value 11
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: a value is 11
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:232 Write query: c saved with value 1123
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: c value is 1123
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:232 Write query: g saved with value 115
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: a value is 11
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.031
+20:57:46 INFO   MainThread:232 Write query: b saved with value 10
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.063
+20:57:46 INFO   MainThread:232 Write query: e saved with value 99
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.156
+20:57:46 INFO   MainThread:232 Write query: f saved with value 12
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: a value is 11
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: b value is 10
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: c value is 1123
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.016
+20:57:46 INFO   MainThread:223 Read Query: d value is 11
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: e value is 99
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: f value is 12
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: g value is 115
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.078
+20:57:46 INFO   MainThread:232 Write query: j saved with value 1234
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: j value is 1234
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:232 Write query: i saved with value 95
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: i value is 95
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: e value is 99
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: j value is 1234
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: i value is 95
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: e value is 99
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:232 Write query: q saved with value 45
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.016
+20:57:46 INFO   MainThread:232 Write query: s saved with value 50
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: q value is 45
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:223 Read Query: s value is 50
+20:57:46 INFO   MainThread:226 Read Query Duration: 0.0
+20:57:46 INFO   MainThread:232 Write query: b saved with value 97
+20:57:46 INFO   MainThread:235 Write Query Duration: 0.0
+20:57:46 INFO   MainThread:116 Average Read Queries time: 0.018392857142857145 from 56 queries
+20:57:46 INFO   MainThread:117 Average Write Queries time: 0.023068181818181818 from 44 queries
+20:57:46 INFO   MainThread:118 Average Queries time: 0.02073051948051948 from 100 queries
+20:57:46 INFO   MainThread:119 AverageElection time: 1.1720000000000002 from 2 election
+20:57:46 INFO   MainThread:120 Total runtime duration: 16.422
+20:57:46 INFO   MainThread:210 Node 0 Stopped

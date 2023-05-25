@@ -602,7 +602,7 @@ class Client:
         self.start_time = time.monotonic_ns()
         self.query_time = dict()
         self.end_time = None
-        self.scenario = "worst"
+        self.scenario = "best"
 
         self.last_operation = None
         # Configuration setting of the current replica group

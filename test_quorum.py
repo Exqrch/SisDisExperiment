@@ -77,12 +77,11 @@ def main():
     filename = f'queries/{query_type}/quorum/query_1.txt'
     with open(filename, 'r') as file:
         for i, message in enumerate(file.readlines()):
-            time.sleep(1)
             message_list = message.strip().split("-")
             if 'READ' in message:
                 leader.read(message_list[1])
             elif 'SET' in message:
-                value = message.split("=")
+                value = message_list[1].split("=")
                 leader.write(value[0], value[1])
             elif 'kill' in message:
                 list_nodes[int(message_list[1])].stop()
