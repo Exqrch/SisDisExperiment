@@ -12,7 +12,7 @@ def thread_exception_handler(args):
 class Quorum:
 
     def __init__(self, node_id: int, port: int, neighbors_ports: list, lb_fault_duration: int, is_continue: bool,
-                 heartbeat_duration: float, leader_id_callback):
+                 heartbeat_duration: float, leader_id_callback , record_preparation_callback, record_queries_callback):
         
         # Initiate Needed Variable
         self.port = port
@@ -38,6 +38,8 @@ class Quorum:
 
         self.stop_signal = threading.Event()
         self.leader_id_callback = leader_id_callback
+        self.record_queries = record_queries_callback
+        self.record_preparation = record_preparation_callback
 
         self.thread = None
 
@@ -48,6 +50,8 @@ class Quorum:
 
     def election_timer_procedure(self):
         # Initiate timer for election
+        start_election_time = 0
+        end_election_time = 0
 
         while self.timer_thread_flag:
             # Run Election Timer per 0.1s
@@ -58,6 +62,7 @@ class Quorum:
                 if self.election_timer == 0.0:
                     # If not hearing from leader for certain time, be candidate and vote for itself
                     self.role = 'candidate'
+                    start_election_time = time.monotonic_ns()
                     self.term += 1
                     if self.leader_ports != 0:
                         self.alive_ports.remove(self.leader_ports)
@@ -84,6 +89,9 @@ class Quorum:
                     self.leader_ports = self.port
                     reset_thread = threading.Thread(target=self.reset_timer)
                     self.iteration += 1
+                    end_election_time = time.monotonic_ns()
+                    self.record_preparation(end_election_time - start_election_time)
+                    logging.info(f'Election Duration: {(end_election_time - start_election_time)/1e9}')
                     reset_thread.name=f"Thread-{self.iteration}"
                     reset_thread.start()
                 self.vote = {}
@@ -211,11 +219,20 @@ class Quorum:
         self.stop_signal.set()
     
     def read(self,key):
+        start_time = time.monotonic_ns()
         logging.info(f"Read Query: {key} value is {self.logs[key]}")
+        end_time = time.monotonic_ns()
+        self.record_queries(end_time-start_time, "read")
+        logging.info(f'Read Query Duration: {(end_time-start_time)/1e9}')
+
     
     def write(self, key, value):
+        start_time = time.monotonic_ns()
         self.logs[key] = value
         logging.info(f"Write query: {key} saved with value {value}")
+        end_time = time.monotonic_ns()
+        self.record_queries(end_time-start_time, "write")
+        logging.info(f'Write Query Duration: {(end_time-start_time)/1e9}')
     
     def restart(self):
         print(f"Node {self.node_id}: Restarted")
