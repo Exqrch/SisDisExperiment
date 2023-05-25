@@ -58,10 +58,11 @@ def main():
         for i, message in enumerate(file.readlines()):
             time.sleep(1)
             message_list = message.strip().split("-")
-            if 'read' in message:
+            if 'READ' in message:
                 leader.read(message_list[1])
-            elif 'write' in message:
-                leader.write(message_list[1], message_list[2])
+            elif 'SET' in message:
+                value = message.split("=")
+                leader.write(value[0], value[1])
             elif 'kill' in message:
                 list_nodes[int(message_list[1])].stop()
                 logging.info(f'nodes {message_list[1]} killed')
