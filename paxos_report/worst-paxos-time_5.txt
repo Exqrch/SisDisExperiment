@@ -1,31 +1,38 @@
-Start time: 249472390000000
-End time  : 249473500000000 
-Run time  : 1.11 
+Start time: 806280.062
+End time  : 806281.125 
+Run time  : 1.062999999965541 
 Election time: 0.0 
-Average Read Time: 0.016 
-Average Set Time: 0.016 
-Query READ-n took: 0.016 
+Average Read Time: 0.0094999999855645 
+Average Set Time: 0.009266666672192513 
+=============================
+Detail Report: 
+Node5 : 
+Total Read = 10, Total Set = 15
+Total Read = 0.094999999855645, Total Set = 0.1390000000828877
+Average Read = 0.0094999999855645, Average Set = 0.009266666672192513
+=============================
+Query READ-n took: 0.015999999945051968 
 Query READ-m took: 0.0 
-Query SET-g=74 took: 0.015 
+Query SET-g=74 took: 0.015000000013969839 
 Query SET-o=81 took: 0.0 
-Query SET-p=68 took: 0.0 
-Query SET-o=19 took: 0.016 
-Query SET-j=10 took: 0.016 
-Query SET-k=14 took: 0.015 
+Query SET-p=68 took: 0.01600000006146729 
+Query SET-o=19 took: 0.0 
+Query SET-j=10 took: 0.015999999945051968 
+Query SET-k=14 took: 0.015000000013969839 
 Query SET-b=74 took: 0.0 
-Query READ-h took: 0.016 
-Query READ-g took: 0.016 
-Query SET-m=84 took: 0.015 
+Query READ-h took: 0.015999999945051968 
+Query READ-g took: 0.0 
+Query SET-m=84 took: 0.015000000013969839 
 Query READ-e took: 0.0 
-Query SET-j=0 took: 0.016 
-Query SET-s=99 took: 0.0 
-Query SET-t=64 took: 0.015 
-Query SET-c=35 took: 0.016 
-Query READ-p took: 0.016 
-Query READ-l took: 0.0 
-Query READ-i took: 0.015 
-Query READ-s took: 0.0 
-Query SET-d=93 took: 0.016 
-Query READ-f took: 0.016 
-Query SET-r=32 took: 0.0 
-Query SET-q=39 took: 0.015 
+Query SET-j=0 took: 0.01600000006146729 
+Query SET-s=99 took: 0.015999999945051968 
+Query SET-t=64 took: 0.015000000013969839 
+Query SET-c=35 took: 0.0 
+Query READ-p took: 0.01600000006146729 
+Query READ-l took: 0.015999999945051968 
+Query READ-i took: 0.0 
+Query READ-s took: 0.015000000013969839 
+Query SET-d=93 took: 0.0 
+Query READ-f took: 0.015999999945051968 
+Query SET-r=32 took: 0.015000000013969839 
+Query SET-q=39 took: 0.0 
