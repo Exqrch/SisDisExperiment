@@ -4,6 +4,7 @@ import time
 import json
 import logging
 import threading
+import random
 
 logging.basicConfig(format='%(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
                     datefmt='%Y-%m-%d:%H:%M:%S',
@@ -53,6 +54,9 @@ class Replica(Node):
         self.start_view_change_req = list()
         self.do_view_change_req = list()
         self.last_normal_view = 0
+        
+        # Recovery
+        self.recovery_req = dict()
 
         # Control Variables
         self.done = False
@@ -71,14 +75,17 @@ class Replica(Node):
         logger.info(f"Replica:{self.node_id}:{time.monotonic_ns()}: Stopping replica...")
         self.status = 'STOPPED'
         self.done = True
-        logger.info(f"STOPPING {self.node_id} {self.status} {self}")
+        logger.info(f"STOPPING {self.node_id} {self.status} {self.done} {self}")
 
     def restore_replica(self):
         logger.info(f"Replica:{self.node_id}:{time.monotonic_ns()}: Restoring replica...")
         time.sleep(1)
-        self.status = 'NORMAL'
+        self.status = 'RESTORE'
         self.done = False
-        logger.info(f"RESTORING {self.node_id} {self.status} {self}")
+        message = ("RECOVERY", (self.node_id,  round(random.random() * 1000)))
+        self.broadcast(json.dumps(message))
+        logger.info(f"RESTORING {self.node_id} {self.status} {self.done} {self} {time.monotonic_ns()}")
+        threading.Thread(target=self.wait_recovery).start()
 
     def handle_read_message(self, message):
         if self.is_primary_replica():
@@ -265,17 +272,57 @@ class Replica(Node):
 
             if order == "START_VIEW_CHANGE":
                 self.handle_start_view_change_message(m)
+                
+            if order == "RECOVERY":
+                self.handle_recovery_message(m)
             conn.close()
+            
+    def wait_recovery(self):
+        self.logs = None
+        self.socket.listen()
+        while self.status == "RESTORE":
+            try:
+                conn, _ = self.socket.accept()
+                data = conn.recv(1024)
+                message = data.decode("utf-8")
+            except OSError:
+                break
+
+            (order, m) = json.loads(message)
+            logger.info(f"Replica:{self.node_id}:{time.monotonic_ns()}: Received message: {order} {m}")
+            if order == "RECOVERY_RESPONSE":
+                self.handle_recovery_response_message(m)
+            conn.close()
+                
+            
+    def handle_recovery_message(self, message):
+        if self.status == "NORMAL":
+            (node_id, nonce) = message
+            message = ("RECOVERY_RESPONSE", (self.view_num, nonce, None, None, None, self.node_id))
+            if self.is_primary_replica():
+                message = ("RECOVERY_RESPONSE", (self.view_num, nonce, self.logs, self.op_num, self.commit_num, self.node_id))
+            self.send_to(node_id, json.dumps(message))
+        
+    def handle_recovery_response_message(self, message):
+        logger.info(f"Replica:{self.node_id} RECOVERY_RESPONSE HANDLER {message}")
+        (view_num, nonce, logs, op_num, commit_num, node_id) = message
+        self.recovery_req[node_id] = message
+        logger.info(f"Replica:{self.node_id} {self.recovery_req}")
+        logger.info(f"Replica:{self.node_id} recovery response logs={logs} self.logs={self.logs}")
+        if logs != None:
+            self.view_num = view_num
+            self.logs = logs
+            self.op_num = op_num
+            self.commit_num = commit_num
+            self.status = "NORMAL"
+            logger.info(f"Replica:{self.node_id}:{time.monotonic_ns()}; Recovery complete")
+            threading.Thread(target=self.run).start()
 
     def handle_commit_message(self, message):
         (v, k) = message
-        if self.is_primary_replica():
-            if v >= self.view_num:
-                self.view_num = v   
-        
         if self.is_backup_replica():
             if v >= self.view_num:
-                logger.info(f"Replica:{self.node_id}: Backup: Received Hearbear/COMMIT from the primary...")
+                logger.info(f"Replica:{self.node_id}: Backup: Received Heartbeat/COMMIT from the primary...")
                 self.heartbeat = 1
                 if k > self.last_commit_num:
                     self.last_commit_num = k
@@ -626,7 +673,9 @@ class Client:
 
         logger.info("Client:: Finished sending message to replica")
         timer_end = time.monotonic_ns()
-        logger.info(f"Runtime Taken {timer_end - timer} start time {timer} end time {timer_end}")
+        log = f"Runtime Taken {timer_end - timer} start time {timer} end time {timer_end}"
+        with open(f"vsr_report/time/{self.scenario}.txt", 'a') as f:
+            f.write(f"{log}\n")
         
     def send_to(self, addr, data):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
