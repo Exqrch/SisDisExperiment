@@ -8,7 +8,7 @@ import random
 
 logging.basicConfig(format='%(levelname)-8s [%(filename)s:%(lineno)d] %(message)s',
                     datefmt='%Y-%m-%d:%H:%M:%S',
-                    level=logging.DEBUG)
+                    level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class Replica(Node):
@@ -117,6 +117,15 @@ class Replica(Node):
             s.sendall(message.encode("utf-8"))
 
     def run(self):
+        from importlib import reload
+        reload(logging)
+        logging.basicConfig(
+            format='%(asctime)-4s %(levelname)-6s %(threadName)s:%(lineno)-3d %(message)s',
+            datefmt='%H:%M:%S',
+            filename=f"vsr_report/logs/run_{self.node_id}.txt",
+            filemode='w',
+            level=logging.INFO
+            )
         self.start_listening()
         self.start()
 
@@ -596,7 +605,7 @@ class Replica(Node):
 
 
 class Client:
-    def __init__(self, replicas: list, tout, addr):
+    def __init__(self, replicas: list, tout, addr, scenario):
         # Socket
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind(addr)
@@ -605,7 +614,7 @@ class Client:
         self.start_time = time.monotonic_ns()
         self.query_time = dict()
         self.end_time = None
-        self.scenario = "worst"
+        self.scenario = scenario
 
         self.last_operation = None
         # Configuration setting of the current replica group
@@ -621,6 +630,15 @@ class Client:
         logger.info(f"Client::{self} setup completed")
         
     def run(self):
+        from importlib import reload
+        reload(logging)
+        logging.basicConfig(
+            format='%(asctime)-4s %(levelname)-6s %(threadName)s:%(lineno)-3d %(message)s',
+            datefmt='%H:%M:%S',
+            filename=f"vsr_report/logs/client.txt",
+            filemode='w',
+            level=logging.INFO
+            )
         threading.Thread(target=self.listen).start()
         self.start()
 
